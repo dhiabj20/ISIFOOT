@@ -1,14 +1,25 @@
-# Add these lines to .gitignore
 node_modules/
-android/app/build/
+.bundle/
+
+# Android
 android/.gradle/
+android/build/
+android/app/build/
+android/app/.cxx/
+android/local.properties
+
+# iOS
 ios/Pods/
+
+# Secrets and signing
 .env
 *.jks
 *.p8
 *.p12
 *.key
 *.mobileprovision
+
+# Misc
 *.orig.*
 web-build/
 .DS_Store
