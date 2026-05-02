@@ -1,0 +1,14 @@
+# ninja log v5
+44	1440	0	C:/Users/Mega-PC/sbah_dvr/isifoot/android/app/.cxx/Debug/2654m2o6/arm64-v8a/CMakeFiles/cmake.verify_globs	7cbc7e090e0fcfbc
+914	11375	7990738535735424	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/bdb201978d70a075a37611d21b8e5191/jni/react/renderer/components/safeareacontext/States.cpp.o	1fcb3143765036c4
+512	12277	7990738544905594	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/3b6041c7b9af1390ecd028e07e2be80e/react/renderer/components/safeareacontext/EventEmitters.cpp.o	48333f9f75523659
+791	12558	7990738547974368	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/cb62112943140300f59d792b57242164/generated/source/codegen/jni/safeareacontext-generated.cpp.o	ca565fd8798ec2a9
+260	13417	7990738556579716	CMakeFiles/appmodules.dir/OnLoad.cpp.o	854c6a6a7095bedf
+367	15540	7990738577646705	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/eea6913c355d2c633d8da4eb573cea56/components/safeareacontext/RNCSafeAreaViewState.cpp.o	120e33ad5b1814de
+1024	16002	7990738582474156	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/3b6041c7b9af1390ecd028e07e2be80e/react/renderer/components/safeareacontext/ShadowNodes.cpp.o	ddfceb74bf96c9a1
+710	16804	7990738590352892	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/bdb201978d70a075a37611d21b8e5191/jni/react/renderer/components/safeareacontext/Props.cpp.o	f981e8bf2450dfbf
+635	17509	7990738597395773	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/a7d0f7c052f4165e0d0ad01bf4d76a0b/components/safeareacontext/ComponentDescriptors.cpp.o	27f53d98f28255f
+455	18521	7990738607344501	safeareacontext_autolinked_build/CMakeFiles/react_codegen_safeareacontext.dir/eea6913c355d2c633d8da4eb573cea56/components/safeareacontext/RNCSafeAreaViewShadowNode.cpp.o	b2200054297e1806
+5	18589	7990738608035239	CMakeFiles/appmodules.dir/C_/Users/Mega-PC/sbah_dvr/isifoot/android/app/build/generated/autolinking/src/main/jni/autolinking.cpp.o	b4587632d78ef8c3
+18522	19171	7990738614153919	C:/Users/Mega-PC/sbah_dvr/isifoot/android/app/build/intermediates/cxx/Debug/2654m2o6/obj/arm64-v8a/libreact_codegen_safeareacontext.so	3855b8786fb5b54e
+19171	19462	7990738617209049	C:/Users/Mega-PC/sbah_dvr/isifoot/android/app/build/intermediates/cxx/Debug/2654m2o6/obj/arm64-v8a/libappmodules.so	2e78f0e6e51f6da

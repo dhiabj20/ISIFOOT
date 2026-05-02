@@ -1,0 +1,14 @@
+# Add these lines to .gitignore
+node_modules/
+android/app/build/
+android/.gradle/
+ios/Pods/
+.env
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+.DS_Store
