@@ -7,11 +7,13 @@ import { supabase } from '../services/supabase';
 import { signOut } from '../services/authService';
 import { getUserReservations } from '../services/reservationService';
 import { useTheme } from '../context/ThemeContext';
+import { useTopMessage } from '../context/TopMessageContext';
 import { THEME_MODES } from '../theme';
 import { GlassBackground, ScreenHeader } from '../components';
 
 export default function ProfileScreen({ navigation }) {
   const { colors, isDark, mode, setThemeMode } = useTheme();
+  const { showError, showSuccess } = useTopMessage();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const [profile, setProfile] = useState(null);
@@ -50,7 +52,7 @@ export default function ProfileScreen({ navigation }) {
 
   const handleSave = async () => {
     if (!fullName.trim()) {
-      Alert.alert('Erreur', 'Le nom ne peut pas etre vide.');
+      showError({ title: 'Erreur', message: 'Le nom ne peut pas etre vide.' });
       return;
     }
 
@@ -63,9 +65,10 @@ export default function ProfileScreen({ navigation }) {
     setSaving(false);
 
     if (error) {
-      Alert.alert('Erreur', error.message);
+      showError({ title: 'Erreur', message: error.message });
     } else {
       setEditMode(false);
+      showSuccess({ title: 'Succes', message: 'Profil mis a jour.' });
       loadProfile();
     }
   };

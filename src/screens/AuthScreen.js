@@ -10,12 +10,12 @@ import {
   Platform,
   Animated,
   ActivityIndicator,
-  Alert,
   StatusBar,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { resendSignupConfirmation, signIn, signUp } from '../services/authService';
 import { useTheme } from '../context/ThemeContext';
+import { useTopMessage } from '../context/TopMessageContext';
 import { GlassBackground } from '../components';
 
 const validators = {
@@ -58,6 +58,7 @@ function Field({ label, error, styles, placeholderColor, ...props }) {
 
 export default function AuthScreen() {
   const { colors, glass, isDark } = useTheme();
+  const { showError, showSuccess, showInfo } = useTopMessage();
   const styles = useMemo(() => createStyles(colors, glass), [colors, glass]);
 
   const [mode, setMode] = useState('login');
@@ -113,13 +114,13 @@ export default function AuthScreen() {
     if (error) {
       const value = (error.message || '').toLowerCase();
       if (value.includes('email not confirmed')) {
-        Alert.alert('Email non confirme', 'Confirmez votre email avant de vous connecter.');
+        showInfo({ title: 'Email non confirme', message: 'Confirmez votre email avant de vous connecter.' });
         return;
       }
-      Alert.alert(
-        'Erreur de connexion',
-        error.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect.' : error.message
-      );
+      showError({
+        title: 'Erreur de connexion',
+        message: error.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect.' : error.message,
+      });
     }
   };
 
@@ -165,7 +166,7 @@ export default function AuthScreen() {
     setLoading(false);
 
     if (error) {
-      Alert.alert('Erreur inscription', mapSignupError(error.message));
+      showError({ title: 'Erreur inscription', message: mapSignupError(error.message) });
       return;
     }
 
@@ -173,24 +174,8 @@ export default function AuthScreen() {
       ? 'Cet email semble deja inscrit. Si vous ne recevez rien, appuyez sur "Renvoyer l email".'
       : 'Verifiez votre email pour confirmer votre compte, puis connectez-vous.';
 
-    Alert.alert('Verification email', info, [
-      {
-        text: 'Renvoyer l email',
-        onPress: async () => {
-          const targetEmail = regEmail.trim().toLowerCase();
-          if (!targetEmail) {
-            return;
-          }
-          const { error: resendError } = await resendSignupConfirmation(targetEmail);
-          if (resendError) {
-            Alert.alert('Echec renvoi', resendError.message);
-            return;
-          }
-          Alert.alert('Email renvoye', `Un nouveau mail a ete envoye a ${targetEmail}.`);
-        },
-      },
-      { text: 'OK', onPress: () => switchMode('login') },
-    ]);
+    showSuccess({ title: 'Verification email', message: info, duration: 3600 });
+    switchMode('login');
   };
 
   const indicatorLeft = slideAnim.interpolate({
@@ -277,10 +262,10 @@ export default function AuthScreen() {
                   onPress={async () => {
                     const { error } = await resendSignupConfirmation(lastSignupEmail);
                     if (error) {
-                      Alert.alert('Echec renvoi', error.message);
+                      showError({ title: 'Echec renvoi', message: error.message });
                       return;
                     }
-                    Alert.alert('Email renvoye', `Un nouveau mail a ete envoye a ${lastSignupEmail}.`);
+                    showSuccess({ title: 'Email renvoye', message: `Un nouveau mail a ete envoye a ${lastSignupEmail}.` });
                   }}
                 >
                   <Text style={styles.switchText}>

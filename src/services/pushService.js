@@ -74,3 +74,44 @@ export async function registerPushTokenIfAvailable() {
   await upsertPushToken(user.id, token);
   return { token, provider: 'fcm' };
 }
+
+export async function showLocalNotificationIfAvailable({ title, body, data }) {
+  let notifications;
+  try {
+    notifications = require('expo-notifications');
+  } catch {
+    notifications = null;
+  }
+
+  if (!notifications) {
+    return false;
+  }
+
+  try {
+    notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+        shouldShowBanner: true,
+        shouldShowList: true,
+      }),
+    });
+  } catch {
+    // Keep going if handler was already set or unavailable.
+  }
+
+  try {
+    await notifications.scheduleNotificationAsync({
+      content: {
+        title: title || 'ISIFOOT',
+        body: body || '',
+        data: data || {},
+      },
+      trigger: null,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}

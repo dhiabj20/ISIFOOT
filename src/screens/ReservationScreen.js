@@ -22,6 +22,7 @@ import {
 import { createFixture, joinFixture } from '../services/fixtureService';
 import { TIME_SLOTS } from '../theme';
 import { useTheme } from '../context/ThemeContext';
+import { useTopMessage } from '../context/TopMessageContext';
 import { ScreenHeader, EmptyState, GlassBackground } from '../components';
 
 function getEndTime(start) {
@@ -86,6 +87,7 @@ function isSlotPassed(dateKey, slot, now = new Date()) {
 
 export default function ReservationScreen({ navigation, route }) {
   const { colors, isDark } = useTheme();
+  const { showError, showInfo, showSuccess } = useTopMessage();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const prefDate = route?.params?.date || toLocalDateKey(new Date());
   const prefSlot = route?.params?.slot || null;
@@ -206,31 +208,31 @@ export default function ReservationScreen({ navigation, route }) {
 
   const handleSubmit = async () => {
     if (!date) {
-      Alert.alert('Erreur', 'Choisissez une date.');
+      showError({ title: 'Erreur', message: 'Choisissez une date.' });
       return;
     }
     if (!isValidDateFormat(date)) {
-      Alert.alert('Erreur', 'Date invalide. Utilisez le format YYYY-MM-DD.');
+      showError({ title: 'Erreur', message: 'Date invalide. Utilisez le format YYYY-MM-DD.' });
       return;
     }
     if (isPastDate(date)) {
-      Alert.alert('Erreur', 'Vous ne pouvez pas réserver une date passée.');
+      showError({ title: 'Erreur', message: 'Vous ne pouvez pas reserver une date passee.' });
       return;
     }
     if (!selectedSlot) {
-      Alert.alert('Erreur', 'Choisissez un créneau.');
+      showError({ title: 'Erreur', message: 'Choisissez un creneau.' });
       return;
     }
     if (bookedSlots.includes(selectedSlot)) {
-      Alert.alert('Erreur', 'Ce créneau est déjà réservé.');
+      showError({ title: 'Erreur', message: 'Ce creneau est deja reserve.' });
       return;
     }
     if (isSlotPassed(date, selectedSlot)) {
-      Alert.alert('Erreur', 'Ce créneau est déjà passé.');
+      showError({ title: 'Erreur', message: 'Ce creneau est deja passe.' });
       return;
     }
     if (!userId) {
-      Alert.alert('Erreur', 'Session utilisateur introuvable. Reconnectez-vous.');
+      showError({ title: 'Erreur', message: 'Session utilisateur introuvable. Reconnectez-vous.' });
       return;
     }
 
@@ -259,7 +261,7 @@ export default function ReservationScreen({ navigation, route }) {
       setLoading(false);
 
       if (error) {
-        Alert.alert('Erreur', error.message);
+        showError({ title: 'Erreur', message: error.message });
         return;
       }
 
@@ -297,13 +299,13 @@ export default function ReservationScreen({ navigation, route }) {
           });
           if (newFixtureError) {
             setLoading(false);
-            Alert.alert('Erreur', `Impossible de créer le match public: ${newFixtureError.message}`);
+            showError({ title: 'Erreur', message: `Impossible de creer le match public: ${newFixtureError.message}` });
             return;
           }
 
           const { error: joinError } = await joinFixture({ fixtureId: newFixture.id, userId, team: 'A' });
           if (joinError) {
-            Alert.alert('Info', `Match créé, mais ajout automatique dans l'équipe A impossible: ${joinError.message}`);
+            showInfo({ title: 'Info', message: `Match cree, mais ajout automatique dans l'equipe A impossible: ${joinError.message}` });
           }
         }
       } else {
@@ -313,7 +315,7 @@ export default function ReservationScreen({ navigation, route }) {
           .eq('reservation_id', editingId);
       }
 
-      Alert.alert('Réservation modifiée', 'Votre réservation a été mise à jour.');
+      showSuccess({ title: 'Reservation modifiee', message: 'Votre reservation a ete mise a jour.' });
       resetForm();
       setTab('mine');
       loadMine(userId);
@@ -332,7 +334,7 @@ export default function ReservationScreen({ navigation, route }) {
 
     if (error || !reservation) {
       setLoading(false);
-      Alert.alert('Erreur', error?.message || 'Échec de création de réservation.');
+      showError({ title: 'Erreur', message: error?.message || 'Echec de creation de reservation.' });
       return;
     }
 
@@ -350,10 +352,10 @@ export default function ReservationScreen({ navigation, route }) {
       });
       if (fixtureError) {
         setLoading(false);
-        Alert.alert(
-          'Réservation confirmée',
-          `La réservation est créée, mais le match public a échoué: ${fixtureError.message}`
-        );
+        showInfo({
+          title: 'Reservation confirmee',
+          message: `La reservation est creee, mais le match public a echoue: ${fixtureError.message}`,
+        });
         resetForm();
         setTab('mine');
         loadMine(userId);
@@ -362,12 +364,12 @@ export default function ReservationScreen({ navigation, route }) {
 
       const { error: joinError } = await joinFixture({ fixtureId: fixture.id, userId, team: 'A' });
       if (joinError) {
-        Alert.alert('Info', `Réservation créée, mais ajout automatique dans l'équipe A impossible: ${joinError.message}`);
+        showInfo({ title: 'Info', message: `Reservation creee, mais ajout automatique dans l'equipe A impossible: ${joinError.message}` });
       }
     }
 
     setLoading(false);
-    Alert.alert('Réservation confirmée', 'Votre réservation est confirmée immédiatement.');
+    showSuccess({ title: 'Reservation confirmee', message: 'Votre reservation est confirmee immediatement.' });
     resetForm();
     setTab('mine');
     loadMine(userId);
@@ -383,8 +385,13 @@ export default function ReservationScreen({ navigation, route }) {
           text: 'Oui, annuler',
           style: 'destructive',
           onPress: async () => {
-            await cancelReservation(reservationId, userId);
-            loadMine(userId);
+            const { error } = await cancelReservation(reservationId, userId);
+            if (error) {
+              showError({ title: 'Erreur', message: `Annulation impossible: ${error.message}` });
+              return;
+            }
+            await loadMine(userId);
+            showSuccess({ title: 'Reservation annulee', message: 'La reservation a ete annulee avec succes.' });
           },
         },
       ]

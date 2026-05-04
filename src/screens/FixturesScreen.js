@@ -6,10 +6,12 @@ import {
 import { supabase } from '../services/supabase';
 import { getFixtures, joinFixture, leaveFixture } from '../services/fixtureService';
 import { useTheme } from '../context/ThemeContext';
+import { useTopMessage } from '../context/TopMessageContext';
 import { GlassBackground, ScreenHeader, EmptyState } from '../components';
 
 export default function FixturesScreen({ navigation }) {
   const { colors, isDark } = useTheme();
+  const { showError, showInfo, showSuccess } = useTopMessage();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const [fixtures, setFixtures] = useState([]);
   const [userId, setUserId] = useState(null);
@@ -55,7 +57,10 @@ export default function FixturesScreen({ navigation }) {
     const max = team === 'A' ? fixture.team_a_max : fixture.team_b_max;
 
     if (players.length >= max) {
-      Alert.alert('Équipe complète', `L'équipe ${team === 'A' ? fixture.team_a_name : fixture.team_b_name} est complète.`);
+      showInfo({
+        title: 'Equipe complete',
+        message: `L'equipe ${team === 'A' ? fixture.team_a_name : fixture.team_b_name} est complete.`,
+      });
       return;
     }
 
@@ -63,8 +68,12 @@ export default function FixturesScreen({ navigation }) {
     const { error } = await joinFixture({ fixtureId: fixture.id, userId, team });
     setJoining(null);
 
-    if (error) Alert.alert('Erreur', error.message);
-    else onRefresh();
+    if (error) {
+      showError({ title: 'Erreur', message: error.message });
+    } else {
+      showSuccess({ title: 'Succes', message: 'Vous avez rejoint le match.' });
+      onRefresh();
+    }
   };
 
   const handleLeave = async (fixture) => {
@@ -73,6 +82,7 @@ export default function FixturesScreen({ navigation }) {
       {
         text: 'Oui', onPress: async () => {
           await leaveFixture({ fixtureId: fixture.id, userId });
+          showSuccess({ title: 'Succes', message: 'Vous avez quitte ce match.' });
           onRefresh();
         },
       },

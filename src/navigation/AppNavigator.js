@@ -4,8 +4,13 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { supabase } from '../services/supabase';
-import { registerPushTokenIfAvailable } from '../services/pushService';
+import {
+  registerPushTokenIfAvailable,
+  showLocalNotificationIfAvailable,
+} from '../services/pushService';
+import { startChatMessageNotifications } from '../services/chatNotificationService';
 import { useTheme } from '../context/ThemeContext';
+import { useTopMessage } from '../context/TopMessageContext';
 
 import AuthScreen from '../screens/AuthScreen';
 import FixtureChatScreen from '../screens/FixtureChatScreen';
@@ -15,6 +20,7 @@ const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   const { colors } = useTheme();
+  const { showInfo } = useTopMessage();
   const [session, setSession] = useState(undefined); // undefined = loading
 
   useEffect(() => {
@@ -37,6 +43,24 @@ export default function AppNavigator() {
     }
     registerPushTokenIfAvailable();
   }, [session]);
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      return;
+    }
+
+    const stop = startChatMessageNotifications({
+      userId: session.user.id,
+      onNotify: async ({ title, body }) => {
+        const shown = await showLocalNotificationIfAvailable({ title, body });
+        if (!shown) {
+          showInfo({ title, message: body });
+        }
+      },
+    });
+
+    return () => stop();
+  }, [session?.user?.id, showInfo]);
 
   if (session === undefined) {
     return (

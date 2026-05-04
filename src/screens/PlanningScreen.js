@@ -32,6 +32,20 @@ function getWeekDays(baseDate) {
   return days;
 }
 
+function isSlotPassed(selectedDate, slot, now = new Date()) {
+  const [hours, minutes] = slot.split(':').map(Number);
+  const slotDateTime = new Date(
+    selectedDate.getFullYear(),
+    selectedDate.getMonth(),
+    selectedDate.getDate(),
+    hours,
+    minutes,
+    0,
+    0
+  );
+  return slotDateTime < now;
+}
+
 export default function PlanningScreen({ navigation }) {
   const { colors, isDark } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -130,9 +144,10 @@ export default function PlanningScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.slotsWrap} showsVerticalScrollIndicator={false}>
           {TIME_SLOTS.map((slot) => {
             const booked = isBooked(slot);
+            const passed = !booked && isSlotPassed(selectedDate, slot);
             const res = getReservationFor(slot);
             return (
-              <View key={slot} style={[styles.slotRow, booked && styles.slotRowBooked]}>
+              <View key={slot} style={[styles.slotRow, booked && styles.slotRowBooked, passed && styles.slotRowPast]}>
                 <Text style={styles.slotTime}>{slot}</Text>
                 <View style={styles.slotInfo}>
                   {booked ? (
@@ -143,6 +158,8 @@ export default function PlanningScreen({ navigation }) {
                       ) : null}
                       {res?.team_name ? <Text style={styles.slotTeam}>Equipe: {res.team_name}</Text> : null}
                     </>
+                  ) : passed ? (
+                    <Text style={styles.slotPast}>Indisponible - Heure passee</Text>
                   ) : (
                     <TouchableOpacity
                       onPress={() => navigation.navigate('Reservation', { date: toLocalDateKey(selectedDate), slot })}
@@ -179,10 +196,11 @@ function createStyles(colors) {
   weekScroll: { flex: 1 },
   dayBtn: {
     alignItems: 'center',
-    padding: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     marginHorizontal: 4,
     borderRadius: 14,
-    minWidth: 44,
+    minWidth: 56,
   },
   dayBtnSelected: {
     backgroundColor: colors.greenDimStrong,
@@ -227,9 +245,14 @@ function createStyles(colors) {
     borderColor: colors.redBorder,
     backgroundColor: colors.redDim,
   },
+  slotRowPast: {
+    borderColor: colors.textTertiary,
+    backgroundColor: colors.bgCardAlt,
+  },
     slotTime: { color: colors.fieldLabel, fontWeight: '800', fontSize: 14, width: 52 },
   slotInfo: { flex: 1, paddingHorizontal: 10 },
     slotFree: { color: colors.green, fontWeight: '700', fontSize: 13 },
+    slotPast: { color: colors.textTertiary, fontWeight: '700', fontSize: 13 },
     slotBookedLabel: { color: colors.red, fontWeight: '800', fontSize: 13 },
     slotBookedBy: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
     slotTeam: { color: colors.fieldLabel, fontSize: 12, marginTop: 2 },
