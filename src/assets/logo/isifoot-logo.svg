@@ -1,0 +1,45 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(510 380) rotate(90) scale(620)">
+      <stop offset="0" stop-color="#123326"/>
+      <stop offset="1" stop-color="#050E0B"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="210" y1="150" x2="830" y2="890" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="white" stop-opacity="0.18"/>
+      <stop offset="1" stop-color="white" stop-opacity="0.02"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="180" y1="120" x2="860" y2="920" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#56FFAD"/>
+      <stop offset="1" stop-color="#1DBE66"/>
+    </linearGradient>
+    <linearGradient id="pitch" x1="306" y1="320" x2="718" y2="776" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2BE67B"/>
+      <stop offset="1" stop-color="#0E7E47"/>
+    </linearGradient>
+    <filter id="softGlow" x="140" y="140" width="744" height="744" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="26" result="b"/>
+      <feBlend in="SourceGraphic" in2="b" mode="normal"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+
+  <g filter="url(#softGlow)">
+    <path d="M512 146L792 272V492C792 695 664 842 512 894C360 842 232 695 232 492V272L512 146Z" fill="#0A1B14"/>
+    <path d="M512 160L778 281V491C778 684 657 826 512 877C367 826 246 684 246 491V281L512 160Z" fill="url(#glass)"/>
+    <path d="M512 160L778 281V491C778 684 657 826 512 877C367 826 246 684 246 491V281L512 160Z" stroke="url(#edge)" stroke-width="12"/>
+  </g>
+
+  <rect x="302" y="318" width="420" height="456" rx="88" fill="url(#pitch)"/>
+  <rect x="334" y="350" width="356" height="392" rx="66" fill="rgba(5,14,11,0.28)"/>
+  <rect x="350" y="472" width="324" height="24" rx="12" fill="rgba(230,255,240,0.75)"/>
+  <circle cx="512" cy="484" r="62" fill="none" stroke="rgba(230,255,240,0.75)" stroke-width="18"/>
+  <rect x="497" y="372" width="30" height="302" rx="15" fill="rgba(230,255,240,0.86)"/>
+
+  <g>
+    <circle cx="714" cy="298" r="84" fill="#0B2219" stroke="#56FFAD" stroke-width="10"/>
+    <path d="M714 250L744 268V302L714 320L684 302V268L714 250Z" fill="#56FFAD"/>
+    <path d="M684 302L714 320V352L686 366L658 352V320L684 302Z" fill="#56FFAD" fill-opacity="0.85"/>
+    <path d="M744 302L772 320V352L744 366L714 352V320L744 302Z" fill="#56FFAD" fill-opacity="0.75"/>
+  </g>
+</svg>

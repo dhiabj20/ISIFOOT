@@ -1,7 +1,6 @@
-// src/navigation/MainTabs.js
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Image,
+  Animated,
   ScrollView,
   StyleSheet,
   Text,
@@ -9,7 +8,10 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 
+import { COLORS } from '../theme';
+import { GlassBackground } from '../components';
 import HomeScreen from '../screens/HomeScreen';
 import PlanningScreen from '../screens/PlanningScreen';
 import ReservationScreen from '../screens/ReservationScreen';
@@ -17,61 +19,60 @@ import FixturesScreen from '../screens/FixturesScreen';
 import ChatsScreen from '../screens/ChatsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 
-const DARK = '#06120C';
-const TAB_BG = '#0A1C13';
-const GREEN = '#2BE67B';
-const MUTED = '#8AA59A';
-
-const TABS = [
-  {
-    name: 'Home',
-    component: HomeScreen,
-    label: 'Home',
-    icon: require('../assets/tab-icons/home.png'),
-  },
-  {
-    name: 'Planning',
-    component: PlanningScreen,
-    label: 'Planning',
-    icon: require('../assets/tab-icons/planning.png'),
-  },
-  {
-    name: 'Reservation',
-    component: ReservationScreen,
-    label: 'Reserver',
-    icon: require('../assets/tab-icons/reserve.png'),
-  },
-  {
-    name: 'Fixtures',
-    component: FixturesScreen,
-    label: 'Fixtures',
-    icon: require('../assets/tab-icons/fixtures.png'),
-  },
-  {
-    name: 'Chats',
-    component: ChatsScreen,
-    label: 'Chats',
-    icon: require('../assets/tab-icons/chats.png'),
-  },
-  {
-    name: 'Profile',
-    component: ProfileScreen,
-    label: 'Profil',
-    icon: require('../assets/tab-icons/profile.png'),
-  },
+const TAB_CONFIG = [
+  { name: 'Home', label: 'Home', icon: 'home', component: HomeScreen },
+  { name: 'Planning', label: 'Planning', icon: 'calendar', component: PlanningScreen },
+  { name: 'Reservation', label: 'Reserver', icon: 'plus-circle', component: ReservationScreen },
+  { name: 'Fixtures', label: 'Fixtures', icon: 'trophy', component: FixturesScreen },
+  { name: 'Chats', label: 'Chats', icon: 'message-circle', component: ChatsScreen },
+  { name: 'Profile', label: 'Profil', icon: 'user', component: ProfileScreen },
 ];
 
-const TAB_INDEX = TABS.reduce((acc, tab, index) => {
+const TAB_INDEX = TAB_CONFIG.reduce((acc, tab, index) => {
   acc[tab.name] = index;
   return acc;
 }, {});
 
-function TabLabel({ focused, label, icon }) {
+function TabLabel({ scrollX, index, label, icon, width }) {
+  const inputRange = TAB_CONFIG.map((_, i) => i * width);
+  const outputRange = TAB_CONFIG.map((_, i) => i === index ? 1 : 0);
+
+  const scale = scrollX.interpolate({
+    inputRange,
+    outputRange: outputRange.map((v) => v === 1 ? 1.18 : 0.88),
+    extrapolate: 'clamp',
+  });
+
+  const opacity = scrollX.interpolate({
+    inputRange,
+    outputRange: outputRange.map((v) => v === 1 ? 1 : 0.55),
+    extrapolate: 'clamp',
+  });
+
+  const translateY = scrollX.interpolate({
+    inputRange,
+    outputRange: outputRange.map((v) => v === 1 ? -2 : 2),
+    extrapolate: 'clamp',
+  });
+
+  const dotOpacity = scrollX.interpolate({
+    inputRange,
+    outputRange,
+    extrapolate: 'clamp',
+  });
+
   return (
     <View style={styles.tabLabelWrap}>
-      <Image source={icon} style={[styles.tabIcon, focused && styles.tabIconFocused]} />
-      <Text style={[styles.tabText, focused && styles.tabTextFocused]}>{label}</Text>
-      {focused ? <View style={styles.dot} /> : null}
+      <Animated.View style={{ transform: [{ scale }, { translateY }], opacity }}>
+        <Icon
+          name={icon}
+          size={22}
+          color={COLORS.green}
+          style={styles.tabIcon}
+        />
+      </Animated.View>
+      <Text style={styles.tabText}>{label}</Text>
+      <Animated.View style={[styles.dot, { opacity: dotOpacity }]} />
     </View>
   );
 }
@@ -82,6 +83,8 @@ export default function MainTabs({ navigation, route }) {
   const historyRef = useRef([0]);
   const activeIndexRef = useRef(0);
 
+  const scrollX = useRef(new Animated.Value(0)).current;
+
   const [activeIndex, setActiveIndex] = useState(0);
   const [tabParams, setTabParams] = useState({});
 
@@ -90,25 +93,18 @@ export default function MainTabs({ navigation, route }) {
   }, [activeIndex]);
 
   const scrollToIndex = useCallback((index, animated) => {
-    if (!pagerRef.current || width <= 0) {
-      return;
-    }
+    if (!pagerRef.current || width <= 0) return;
     pagerRef.current.scrollTo({ x: width * index, y: 0, animated });
   }, [width]);
 
   const switchToTab = useCallback((name, params, animated = true, recordHistory = true) => {
     const nextIndex = TAB_INDEX[name];
-    if (nextIndex == null) {
-      return false;
-    }
+    if (nextIndex == null) return false;
 
     if (params && typeof params === 'object') {
       setTabParams((prev) => ({
         ...prev,
-        [name]: {
-          ...(prev[name] || {}),
-          ...params,
-        },
+        [name]: { ...(prev[name] || {}), ...params },
       }));
     }
 
@@ -116,9 +112,7 @@ export default function MainTabs({ navigation, route }) {
       historyRef.current = [...historyRef.current, nextIndex];
     }
 
-    if (activeIndexRef.current !== nextIndex) {
-      setActiveIndex(nextIndex);
-    }
+    if (activeIndexRef.current !== nextIndex) setActiveIndex(nextIndex);
 
     scrollToIndex(nextIndex, animated);
     return true;
@@ -126,10 +120,7 @@ export default function MainTabs({ navigation, route }) {
 
   useEffect(() => {
     const requestedTab = route?.params?.screen;
-    if (!requestedTab) {
-      return;
-    }
-
+    if (!requestedTab) return;
     switchToTab(requestedTab, route?.params?.params, false, false);
   }, [route?.params, switchToTab]);
 
@@ -137,12 +128,16 @@ export default function MainTabs({ navigation, route }) {
     scrollToIndex(activeIndex, false);
   }, [activeIndex, scrollToIndex, width]);
 
+  const handleScroll = Animated.event(
+    [{ nativeEvent: { contentOffset: { x: scrollX } } }],
+    { useNativeDriver: false }
+  );
+
   const handleMomentumEnd = useCallback((event) => {
-    if (width <= 0) {
-      return;
-    }
+    if (width <= 0) return;
+
     const nextIndex = Math.round(event.nativeEvent.contentOffset.x / width);
-    const safeIndex = Math.max(0, Math.min(TABS.length - 1, nextIndex));
+    const safeIndex = Math.max(0, Math.min(TAB_CONFIG.length - 1, nextIndex));
 
     if (safeIndex !== activeIndexRef.current) {
       setActiveIndex(safeIndex);
@@ -159,9 +154,7 @@ export default function MainTabs({ navigation, route }) {
         return;
       }
 
-      if (switchToTab(target, params, true, true)) {
-        return;
-      }
+      if (switchToTab(target, params, true, true)) return;
 
       navigation.navigate(target, params);
     },
@@ -175,47 +168,21 @@ export default function MainTabs({ navigation, route }) {
         return;
       }
 
-      if (navigation.canGoBack()) {
-        navigation.goBack();
-      }
+      if (navigation.canGoBack()) navigation.goBack();
     },
     canGoBack: () => historyRef.current.length > 1 || navigation.canGoBack(),
     setParams: (params) => {
-      if (!params || typeof params !== 'object') {
-        return;
-      }
+      if (!params || typeof params !== 'object') return;
       setTabParams((prev) => ({
         ...prev,
-        [tabName]: {
-          ...(prev[tabName] || {}),
-          ...params,
-        },
+        [tabName]: { ...(prev[tabName] || {}), ...params },
       }));
     },
   }), [navigation, scrollToIndex, switchToTab]);
 
-  const activeRouteName = TABS[activeIndex]?.name;
-
-  const scenes = useMemo(
-    () => TABS.map((tab) => {
-      const ScreenComponent = tab.component;
-      return {
-        ...tab,
-        element: (
-          <View key={tab.name} style={[styles.page, { width }]}>
-            <ScreenComponent
-              navigation={buildNavigation(tab.name)}
-              route={{ key: tab.name, name: tab.name, params: tabParams[tab.name] }}
-            />
-          </View>
-        ),
-      };
-    }),
-    [buildNavigation, tabParams, width]
-  );
-
   return (
     <View style={styles.root}>
+      <GlassBackground />
       <ScrollView
         ref={pagerRef}
         horizontal
@@ -224,28 +191,43 @@ export default function MainTabs({ navigation, route }) {
         removeClippedSubviews={false}
         overScrollMode="never"
         showsHorizontalScrollIndicator={false}
-        contentOffset={{ x: width * activeIndex, y: 0 }}
-        onMomentumScrollEnd={handleMomentumEnd}
+        onScroll={handleScroll}
         scrollEventThrottle={16}
+        onMomentumScrollEnd={handleMomentumEnd}
+        directionalLockEnabled
+        decelerationRate="fast"
         style={styles.pager}
       >
-        {scenes.map((scene) => scene.element)}
+        {TAB_CONFIG.map((tab) => {
+          const ScreenComponent = tab.component;
+          return (
+            <View key={tab.name} style={[styles.page, { width }]}>
+              <ScreenComponent
+                navigation={buildNavigation(tab.name)}
+                route={{ key: tab.name, name: tab.name, params: tabParams[tab.name] }}
+              />
+            </View>
+          );
+        })}
       </ScrollView>
 
       <View style={styles.tabBar}>
-        {TABS.map((tab) => {
-          const focused = tab.name === activeRouteName;
-          return (
-            <TouchableOpacity
-              key={tab.name}
-              style={styles.tabButton}
-              onPress={() => switchToTab(tab.name, undefined, true, true)}
-              activeOpacity={0.85}
-            >
-              <TabLabel focused={focused} label={tab.label} icon={tab.icon} />
-            </TouchableOpacity>
-          );
-        })}
+        {TAB_CONFIG.map((tab, i) => (
+          <TouchableOpacity
+            key={tab.name}
+            style={styles.tabButton}
+            onPress={() => switchToTab(tab.name, undefined, true, true)}
+            activeOpacity={0.85}
+          >
+            <TabLabel
+              scrollX={scrollX}
+              index={i}
+              label={tab.label}
+              icon={tab.icon}
+              width={width}
+            />
+          </TouchableOpacity>
+        ))}
       </View>
     </View>
   );
@@ -254,7 +236,7 @@ export default function MainTabs({ navigation, route }) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: DARK,
+    backgroundColor: COLORS.bg,
   },
   pager: {
     flex: 1,
@@ -263,12 +245,21 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabBar: {
-    backgroundColor: TAB_BG,
-    borderTopColor: '#163126',
+    backgroundColor: 'rgba(11, 23, 18, 0.82)',
+    borderTopColor: COLORS.greenBorder,
     borderTopWidth: 1,
+    borderRadius: 24,
     height: 74,
     paddingTop: 8,
+    paddingBottom: 6,
+    marginHorizontal: 12,
+    marginBottom: 12,
     flexDirection: 'row',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 10,
   },
   tabButton: {
     flex: 1,
@@ -282,28 +273,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   tabIcon: {
-    width: 24,
-    height: 24,
-    opacity: 0.72,
-  },
-  tabIconFocused: {
-    opacity: 1,
+    marginTop: 2,
   },
   tabText: {
-    color: MUTED,
+    color: COLORS.textSecondary,
     fontSize: 11,
     fontWeight: '600',
     marginTop: 3,
-  },
-  tabTextFocused: {
-    color: GREEN,
-    fontWeight: '800',
   },
   dot: {
     marginTop: 3,
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: GREEN,
+    backgroundColor: COLORS.green,
   },
 });

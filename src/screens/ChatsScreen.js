@@ -1,4 +1,3 @@
-// src/screens/ChatsScreen.js
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
@@ -12,12 +11,8 @@ import {
 } from 'react-native';
 import { supabase } from '../services/supabase';
 import { getUserChatFixtures } from '../services/fixtureService';
-
-const DARK = '#06120C';
-const CARD = '#10231A';
-const BORDER = '#1A3628';
-const GREEN = '#2BE67B';
-const MUTED = '#8AA59A';
+import { COLORS } from '../theme';
+import { EmptyState, GlassBackground, GlassPanel } from '../components';
 
 function formatDate(date, time) {
   try {
@@ -36,9 +31,7 @@ export default function ChatsScreen({ navigation }) {
 
   const load = useCallback(async (uid) => {
     const target = uid || userId;
-    if (!target) {
-      return;
-    }
+    if (!target) return;
     const { data } = await getUserChatFixtures(target);
     setFixtures(data || []);
   }, [userId]);
@@ -62,86 +55,78 @@ export default function ChatsScreen({ navigation }) {
   };
 
   const renderItem = ({ item }) => (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={() => navigation.navigate('FixtureChat', {
-        fixtureId: item.id,
-        fixtureTitle: `${item.team_a_name} vs ${item.team_b_name}`,
-      })}
-      activeOpacity={0.85}
-    >
-      <View style={styles.row}>
-        <Text style={styles.matchTitle}>{item.team_a_name} vs {item.team_b_name}</Text>
-        <View style={styles.badge}><Text style={styles.badgeText}>Chat</Text></View>
-      </View>
-      <Text style={styles.meta}>
-        {formatDate(item.date, item.start_time)} - {item.start_time?.slice(0, 5)} to {item.end_time?.slice(0, 5)}
-      </Text>
-      <Text style={styles.openText}>Open chat</Text>
-    </TouchableOpacity>
+    <GlassPanel compact style={styles.cardWrap}>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => navigation.navigate('FixtureChat', {
+          fixtureId: item.id,
+          fixtureTitle: `${item.team_a_name} vs ${item.team_b_name}`,
+        })}
+        activeOpacity={0.85}
+      >
+        <View style={styles.row}>
+          <Text style={styles.matchTitle}>{item.team_a_name} vs {item.team_b_name}</Text>
+          <View style={styles.badge}><Text style={styles.badgeText}>Chat</Text></View>
+        </View>
+        <Text style={styles.meta}>
+          {formatDate(item.date, item.start_time)} - {item.start_time?.slice(0, 5)} to {item.end_time?.slice(0, 5)}
+        </Text>
+        <Text style={styles.openText}>Open group chat</Text>
+      </TouchableOpacity>
+    </GlassPanel>
   );
 
   if (loading) {
     return (
       <View style={[styles.root, styles.center]}>
-        <StatusBar barStyle="light-content" backgroundColor={DARK} />
-        <ActivityIndicator color={GREEN} size="large" />
+        <GlassBackground />
+        <ActivityIndicator color={COLORS.green} size="large" />
       </View>
     );
   }
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={DARK} />
-      <View style={styles.header}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <GlassBackground />
+
+      <GlassPanel style={styles.header}>
         <Text style={styles.title}>Chats</Text>
-        <Text style={styles.sub}>Discuss with teammates in your public fixtures</Text>
-      </View>
+        <Text style={styles.sub}>Discuss with your teammates</Text>
+      </GlassPanel>
 
       <FlatList
         data={fixtures}
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={GREEN} />}
-        ListEmptyComponent={(
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>No public fixture chats yet</Text>
-            <Text style={styles.emptySub}>Create or join a public fixture to start chatting.</Text>
-          </View>
-        )}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.green} />}
+        ListEmptyComponent={<EmptyState title="No group chats yet" subtitle="Join or create a public fixture to start chatting." />}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: DARK },
+  root: { flex: 1, backgroundColor: COLORS.bg },
   center: { alignItems: 'center', justifyContent: 'center' },
-  header: { paddingHorizontal: 20, paddingTop: 24, paddingBottom: 8 },
-  title: { color: '#fff', fontSize: 28, fontWeight: '900' },
-  sub: { color: MUTED, marginTop: 4 },
+  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 10, marginHorizontal: 14, marginBottom: 8 },
+  title: { color: COLORS.white, fontSize: 28, fontWeight: '900' },
+  sub: { color: COLORS.textSecondary, marginTop: 4 },
   list: { paddingHorizontal: 16, paddingBottom: 24, paddingTop: 8, flexGrow: 1 },
-  card: {
-    backgroundColor: CARD,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: BORDER,
-    padding: 16,
-    marginBottom: 12,
-  },
+  cardWrap: { marginBottom: 12 },
+  card: { padding: 16 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  matchTitle: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  meta: { color: MUTED, marginTop: 8 },
-  openText: { color: GREEN, marginTop: 12, fontWeight: '700' },
+  matchTitle: { color: COLORS.white, fontWeight: '800', fontSize: 16 },
+  meta: { color: COLORS.textSecondary, marginTop: 8 },
+  openText: { color: COLORS.green, marginTop: 12, fontWeight: '700' },
   badge: {
-    backgroundColor: '#1B4D34',
+    backgroundColor: COLORS.greenDim,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: COLORS.greenBorder,
   },
-  badgeText: { color: GREEN, fontWeight: '700', fontSize: 11 },
-  empty: { alignItems: 'center', paddingTop: 80 },
-  emptyTitle: { color: '#D2E8DA', fontWeight: '700', fontSize: 16 },
-  emptySub: { color: MUTED, marginTop: 8, textAlign: 'center' },
+  badgeText: { color: COLORS.green, fontWeight: '700', fontSize: 11 },
 });

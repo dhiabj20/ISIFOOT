@@ -7,10 +7,10 @@
 
 import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SUPABASE_URL, SUPABASE_ANON_KEY, API_URL, API_KEY } from '@env';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from '@env';
 
-const resolvedSupabaseUrl = SUPABASE_URL || API_URL || '';
-const resolvedSupabaseAnonKey = SUPABASE_ANON_KEY || API_KEY || '';
+const resolvedSupabaseUrl = SUPABASE_URL || '';
+const resolvedSupabaseAnonKey = SUPABASE_ANON_KEY || '';
 
 if (
   !resolvedSupabaseUrl ||

@@ -1,4 +1,3 @@
-// src/services/chatService.js
 import { supabase } from './supabase';
 
 export async function getFixtureMessages(fixtureId) {
@@ -30,7 +29,7 @@ export async function sendFixtureMessage({ fixtureId, userId, message }) {
   return { data, error };
 }
 
-export function subscribeToFixtureMessages(fixtureId, onMessage) {
+export function subscribeToFixtureMessages(fixtureId, currentUserId, onMessage) {
   const channel = supabase
     .channel(`fixture-messages-${fixtureId}`)
     .on(
@@ -42,18 +41,33 @@ export function subscribeToFixtureMessages(fixtureId, onMessage) {
         filter: `fixture_id=eq.${fixtureId}`,
       },
       async (payload) => {
-        const { data } = await supabase
-          .from('fixture_messages')
-          .select('id, message, created_at, user_id, profiles(username, full_name)')
-          .eq('id', payload.new.id)
+        const raw = payload.new;
+        const senderId = raw.user_id;
+
+        if (senderId === currentUserId) {
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username, full_name')
+          .eq('id', senderId)
           .single();
 
-        if (data) {
-          onMessage(data);
-        }
+        onMessage({
+          id: raw.id,
+          message: raw.message,
+          created_at: raw.created_at,
+          user_id: senderId,
+          profiles: profile,
+        });
       }
     )
-    .subscribe();
+    .subscribe(async (status) => {
+      if (status === 'CHANNEL_ERROR') {
+        console.error('Real-time channel error, reconnecting...');
+      }
+    });
 
   return () => {
     supabase.removeChannel(channel);

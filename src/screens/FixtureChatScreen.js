@@ -1,5 +1,4 @@
-// src/screens/FixtureChatScreen.js
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -18,11 +17,8 @@ import {
   sendFixtureMessage,
   subscribeToFixtureMessages,
 } from '../services/chatService';
-
-const DARK = '#06120C';
-const CARD = '#10231A';
-const BLUE = '#2BE67B';
-const BORDER = '#1A3628';
+import { COLORS } from '../theme';
+import { GlassBackground, ScreenHeader } from '../components';
 
 function formatTime(value) {
   try {
@@ -35,20 +31,37 @@ function formatTime(value) {
   }
 }
 
+function mergeMessages(previous, incoming) {
+  const map = new Map();
+  [...previous, ...(incoming || [])].forEach((message) => {
+    if (message?.id) {
+      map.set(message.id, message);
+    }
+  });
+  return Array.from(map.values());
+}
+
+let tempIdCounter = 0;
+
 export default function FixtureChatScreen({ navigation, route }) {
   const fixtureId = route?.params?.fixtureId;
   const fixtureTitle = route?.params?.fixtureTitle || 'Chat du match';
 
   const [userId, setUserId] = useState(null);
+  const userIdRef = useRef(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
+  const flatListRef = useRef(null);
+  const pollingRef = useRef(null);
 
   useEffect(() => {
     const init = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      setUserId(user?.id || null);
+      const uid = user?.id || null;
+      setUserId(uid);
+      userIdRef.current = uid;
 
       const { data } = await getFixtureMessages(fixtureId);
       setMessages(data || []);
@@ -63,7 +76,7 @@ export default function FixtureChatScreen({ navigation, route }) {
       return undefined;
     }
 
-    const unsubscribe = subscribeToFixtureMessages(fixtureId, (newMessage) => {
+    const unsubscribe = subscribeToFixtureMessages(fixtureId, userIdRef.current, (newMessage) => {
       setMessages((prev) => {
         if (prev.some((m) => m.id === newMessage.id)) {
           return prev;
@@ -75,31 +88,76 @@ export default function FixtureChatScreen({ navigation, route }) {
     return unsubscribe;
   }, [fixtureId]);
 
+  useEffect(() => {
+    if (!fixtureId) {
+      return undefined;
+    }
+
+    const pollMessages = async () => {
+      const { data } = await getFixtureMessages(fixtureId);
+      setMessages((prev) => mergeMessages(prev, data));
+    };
+
+    pollingRef.current = setInterval(pollMessages, 4000);
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [fixtureId]);
+
   const sortedMessages = useMemo(
     () => [...messages].sort((a, b) => new Date(a.created_at) - new Date(b.created_at)),
     [messages]
   );
+
+  const scrollToBottom = () => {
+    if (flatListRef.current && sortedMessages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  };
 
   const handleSend = async () => {
     if (!userId || !draft.trim() || sending) {
       return;
     }
 
+    const trimmed = draft.trim();
+    setDraft('');
     setSending(true);
+
+    const tempId = `temp-${Date.now()}-${tempIdCounter++}`;
+    const optimisticMsg = {
+      id: tempId,
+      message: trimmed,
+      created_at: new Date().toISOString(),
+      user_id: userId,
+      profiles: null,
+      _optimistic: true,
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    scrollToBottom();
+
     const { data, error } = await sendFixtureMessage({
       fixtureId,
       userId,
-      message: draft,
+      message: trimmed,
     });
     setSending(false);
 
-    if (!error && data) {
-      setDraft('');
+    if (error) {
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      return;
+    }
+
+    if (data) {
       setMessages((prev) => {
-        if (prev.some((m) => m.id === data.id)) {
-          return prev;
-        }
-        return [...prev, data];
+        const replaced = prev.map((m) => (m.id === tempId ? { ...data, _optimistic: false } : m));
+        return mergeMessages([], replaced);
       });
     }
   };
@@ -110,7 +168,7 @@ export default function FixtureChatScreen({ navigation, route }) {
     return (
       <View style={[styles.messageWrap, mine ? styles.messageMine : styles.messageOther]}>
         <Text style={styles.messageAuthor}>{mine ? 'Vous' : username}</Text>
-        <Text style={styles.messageText}>{item.message}</Text>
+        <Text style={[styles.messageText, item._optimistic && styles.messageOptimistic]}>{item.message}</Text>
         <Text style={styles.messageTime}>{formatTime(item.created_at)}</Text>
       </View>
     );
@@ -122,22 +180,18 @@ export default function FixtureChatScreen({ navigation, route }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
-      <StatusBar barStyle="light-content" backgroundColor={DARK} />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.title} numberOfLines={1}>{fixtureTitle}</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <GlassBackground />
+      <ScreenHeader title={fixtureTitle} navigation={navigation} />
 
       {loading ? (
-        <ActivityIndicator style={styles.loader} color={BLUE} />
+        <ActivityIndicator style={styles.loader} color={COLORS.green} />
       ) : (
         <>
           <FlatList
+            ref={flatListRef}
             data={sortedMessages}
-            keyExtractor={(m) => m.id}
+            keyExtractor={(m) => String(m.id)}
             renderItem={renderMessage}
             contentContainerStyle={styles.list}
             ListEmptyComponent={
@@ -150,9 +204,11 @@ export default function FixtureChatScreen({ navigation, route }) {
               value={draft}
               onChangeText={setDraft}
               placeholder="Ecrire un message..."
-              placeholderTextColor="#6B7B8D"
+              placeholderTextColor={COLORS.placeholder}
               style={styles.input}
               multiline
+              onSubmitEditing={handleSend}
+              returnKeyType="send"
             />
             <TouchableOpacity
               style={[styles.sendBtn, (!draft.trim() || sending) && styles.sendBtnDisabled]}
@@ -169,40 +225,36 @@ export default function FixtureChatScreen({ navigation, route }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: DARK },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 56 : 36,
-    paddingBottom: 16,
-  },
-  backBtn: { padding: 4 },
-  backText: { color: BLUE, fontWeight: '700', fontSize: 14 },
-  title: { flex: 1, marginHorizontal: 10, fontSize: 16, fontWeight: '800', color: '#FFF' },
-  headerSpacer: { width: 40 },
+  root: { flex: 1, backgroundColor: COLORS.bg },
   loader: { marginTop: 50 },
   list: { paddingHorizontal: 16, paddingBottom: 24 },
-  emptyText: { color: '#6B7B8D', textAlign: 'center', marginTop: 80 },
+  emptyText: { color: COLORS.placeholder, textAlign: 'center', marginTop: 80 },
   messageWrap: {
     maxWidth: '85%',
-    borderRadius: 12,
+    borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 10,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: BORDER,
+    borderColor: COLORS.greenBorder,
   },
-  messageMine: { alignSelf: 'flex-end', backgroundColor: '#123A7A' },
-  messageOther: { alignSelf: 'flex-start', backgroundColor: CARD },
-  messageAuthor: { color: '#8AACCC', fontSize: 11, marginBottom: 4, fontWeight: '700' },
-  messageText: { color: '#FFF', fontSize: 14 },
-  messageTime: { color: '#6B7B8D', fontSize: 10, marginTop: 6, alignSelf: 'flex-end' },
+  messageMine: {
+    alignSelf: 'flex-end',
+    backgroundColor: COLORS.greenDim,
+    borderColor: COLORS.greenBorderActive,
+  },
+  messageOther: {
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.bgCard,
+  },
+  messageAuthor: { color: COLORS.fieldLabel, fontSize: 11, marginBottom: 4, fontWeight: '700' },
+  messageText: { color: COLORS.white, fontSize: 14 },
+  messageOptimistic: { opacity: 0.5 },
+  messageTime: { color: COLORS.placeholder, fontSize: 10, marginTop: 6, alignSelf: 'flex-end' },
   composer: {
     borderTopWidth: 1,
-    borderTopColor: BORDER,
-    backgroundColor: CARD,
+    borderTopColor: COLORS.greenBorder,
+    backgroundColor: COLORS.composerBg,
     padding: 10,
     flexDirection: 'row',
     gap: 8,
@@ -211,20 +263,22 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     borderWidth: 1,
-    borderColor: BORDER,
-    borderRadius: 10,
+    borderColor: COLORS.greenBorder,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
     maxHeight: 100,
-    color: '#FFF',
-    backgroundColor: DARK,
+    color: COLORS.inputText,
+    backgroundColor: COLORS.inputBg,
   },
   sendBtn: {
-    backgroundColor: BLUE,
-    borderRadius: 10,
+    backgroundColor: COLORS.greenDim,
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 14,
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  sendBtnDisabled: { opacity: 0.6 },
-  sendBtnText: { color: '#FFF', fontWeight: '800', fontSize: 12 },
+  sendBtnDisabled: { opacity: 0.5 },
+  sendBtnText: { color: COLORS.green, fontWeight: '800', fontSize: 12 },
 });

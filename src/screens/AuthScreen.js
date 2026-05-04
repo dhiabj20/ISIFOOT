@@ -1,54 +1,77 @@
-// src/screens/AuthScreen.js
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
-  ScrollView, KeyboardAvoidingView, Platform, Animated,
-  ActivityIndicator, Alert, Dimensions, StatusBar,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
+  Animated,
+  ActivityIndicator,
+  Alert,
+  StatusBar,
 } from 'react-native';
-import { signIn, signUp } from '../services/authService';
+import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { resendSignupConfirmation, signIn, signUp } from '../services/authService';
+import { COLORS, GLASS } from '../theme';
+import { GlassBackground } from '../components';
 
-const { width, height } = Dimensions.get('window');
-
-// ── Validation helpers ────────────────────────────────────────
 const validators = {
-  email: (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : 'Email invalide',
-  password: (v) => v.length >= 6 ? null : 'Minimum 6 caractères',
-  fullName: (v) => v.trim().length >= 2 ? null : 'Nom requis (min 2 caractères)',
-  username: (v) => /^[a-zA-Z0-9_]{3,20}$/.test(v) ? null : '3-20 caractères alphanumériques',
-  confirmPassword: (v, password) => v === password ? null : 'Les mots de passe ne correspondent pas',
+  email: (v) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : 'Email invalide'),
+  password: (v) => (v.length >= 6 ? null : 'Minimum 6 caracteres'),
+  fullName: (v) => (v.trim().length >= 2 ? null : 'Nom requis (min 2 caracteres)'),
+  username: (v) => (/^[a-zA-Z0-9_]{3,20}$/.test(v) ? null : '3-20 caracteres alphanumeriques'),
+  confirmPassword: (v, password) => (v === password ? null : 'Les mots de passe ne correspondent pas'),
 };
 
-// ── Field Component ───────────────────────────────────────────
-const Field = ({ label, icon, error, ...props }) => (
-  <View style={styles.fieldWrap}>
-    <Text style={styles.fieldLabel}>{icon} {label}</Text>
-    <TextInput
-      style={[styles.input, error ? styles.inputError : null]}
-      placeholderTextColor="#6B7B8D"
-      {...props}
-    />
-    {error ? <Text style={styles.fieldError}>{error}</Text> : null}
-  </View>
-);
+function Field({ label, error, ...props }) {
+  return (
+    <View style={styles.fieldWrap}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        style={[styles.input, error && styles.inputError]}
+        placeholderTextColor={COLORS.placeholder}
+        {...props}
+      />
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+    </View>
+  );
+}
+
+function mapSignupError(message) {
+  const value = (message || '').toLowerCase();
+
+  if (value.includes('already registered') || value.includes('already been registered')) {
+    return 'Cet email existe deja. Si vous ne trouvez pas le mail, utilisez "Renvoyer l email".';
+  }
+  if (value.includes('database error saving new user')) {
+    return 'Inscription bloquee. Le nom utilisateur est probablement deja pris. Essayez un autre username.';
+  }
+  if (value.includes('invalid api key') || value.includes('apikey')) {
+    return 'Configuration Supabase invalide. Verifiez SUPABASE_URL et SUPABASE_ANON_KEY dans .env.';
+  }
+
+  return message || 'Erreur inscription.';
+}
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [mode, setMode] = useState('login');
   const [loading, setLoading] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
-  // Login fields
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [loginErrors, setLoginErrors] = useState({});
 
-  // Register fields
   const [regFullName, setRegFullName] = useState('');
   const [regUsername, setRegUsername] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [regStudentId, setRegStudentId] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirm, setRegConfirm] = useState('');
   const [regErrors, setRegErrors] = useState({});
+  const [lastSignupEmail, setLastSignupEmail] = useState('');
 
   const switchMode = (newMode) => {
     Animated.spring(slideAnim, {
@@ -62,32 +85,44 @@ export default function AuthScreen() {
     setRegErrors({});
   };
 
-  // ── Login submit ────────────────────────────────────────────
   const handleLogin = async () => {
     const errors = {};
     const emailErr = validators.email(loginEmail);
     const passErr = validators.password(loginPassword);
-    if (emailErr) {errors.email = emailErr;}
-    if (passErr) {errors.password = passErr;}
+
+    if (emailErr) {
+      errors.email = emailErr;
+    }
+    if (passErr) {
+      errors.password = passErr;
+    }
 
     if (Object.keys(errors).length > 0) {
       setLoginErrors(errors);
       return;
     }
+
     setLoginErrors({});
     setLoading(true);
-
     const { error } = await signIn({ email: loginEmail, password: loginPassword });
     setLoading(false);
 
     if (error) {
-      Alert.alert('Erreur de connexion', error.message === 'Invalid login credentials'
-        ? 'Email ou mot de passe incorrect.' : error.message);
+      const value = (error.message || '').toLowerCase();
+      if (value.includes('email not confirmed')) {
+        Alert.alert(
+          'Email non confirme',
+          'Confirmez votre email avant de vous connecter. Vous pouvez renvoyer le mail depuis cet ecran.'
+        );
+        return;
+      }
+      Alert.alert(
+        'Erreur de connexion',
+        error.message === 'Invalid login credentials' ? 'Email ou mot de passe incorrect.' : error.message
+      );
     }
-    // Navigation handled by App.js via auth state listener
   };
 
-  // ── Register submit ─────────────────────────────────────────
   const handleRegister = async () => {
     const errors = {};
     const nameErr = validators.fullName(regFullName);
@@ -96,37 +131,70 @@ export default function AuthScreen() {
     const passErr = validators.password(regPassword);
     const confErr = validators.confirmPassword(regConfirm, regPassword);
 
-    if (nameErr) {errors.fullName = nameErr;}
-    if (userErr) {errors.username = userErr;}
-    if (emailErr) {errors.email = emailErr;}
-    if (passErr) {errors.password = passErr;}
-    if (confErr) {errors.confirm = confErr;}
+    if (nameErr) {
+      errors.fullName = nameErr;
+    }
+    if (userErr) {
+      errors.username = userErr;
+    }
+    if (emailErr) {
+      errors.email = emailErr;
+    }
+    if (passErr) {
+      errors.password = passErr;
+    }
+    if (confErr) {
+      errors.confirm = confErr;
+    }
 
     if (Object.keys(errors).length > 0) {
       setRegErrors(errors);
       return;
     }
+
     setRegErrors({});
     setLoading(true);
+    setLastSignupEmail(regEmail.trim().toLowerCase());
 
-    const { error } = await signUp({
+    const { error, maybeExistingUser } = await signUp({
       email: regEmail,
       password: regPassword,
       fullName: regFullName,
       username: regUsername,
-      studentId: regStudentId,
     });
     setLoading(false);
 
     if (error) {
-      Alert.alert('Erreur d\'inscription', error.message);
-    } else {
-      Alert.alert(
-        'Compte créé !',
-        'Vérifiez votre email pour confirmer votre compte, puis connectez-vous.',
-        [{ text: 'OK', onPress: () => switchMode('login') }]
-      );
+      Alert.alert('Erreur inscription', mapSignupError(error.message));
+      return;
     }
+
+    const info = maybeExistingUser
+      ? 'Cet email semble deja inscrit. Si vous ne recevez rien, appuyez sur "Renvoyer l email".'
+      : 'Verifiez votre email pour confirmer votre compte, puis connectez-vous.';
+
+    Alert.alert(
+      'Verification email',
+      info,
+      [
+        {
+          text: 'Renvoyer l email',
+          onPress: async () => {
+            const targetEmail = regEmail.trim().toLowerCase();
+            if (!targetEmail) {
+              return;
+            }
+            const { error: resendError } = await resendSignupConfirmation(targetEmail);
+            if (resendError) {
+              Alert.alert('Echec renvoi', resendError.message);
+              return;
+            }
+            Alert.alert('Email renvoye', `Un nouveau mail a ete envoye a ${targetEmail}.`);
+          },
+        },
+        { text: 'OK', onPress: () => switchMode('login') },
+      ]
+    );
   };
 
   const indicatorLeft = slideAnim.interpolate({
@@ -139,31 +207,26 @@ export default function AuthScreen() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="light-content" backgroundColor="#0A1628" />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <GlassBackground />
 
-      {/* Background decorations */}
-      <View style={styles.bgCircle1} />
-      <View style={styles.bgCircle2} />
-      <View style={styles.bgCircle3} />
+      <View style={styles.gradientTop} />
+      <View style={styles.gradientBottom} />
 
       <ScrollView
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Logo / Header */}
         <View style={styles.header}>
           <View style={styles.logoBox}>
-            <Text style={styles.logoEmoji}>⚽</Text>
+            <Icon name="soccer" size={40} color={COLORS.green} />
           </View>
           <Text style={styles.appName}>ISIFOOT</Text>
-          <Text style={styles.tagline}>Terrain de l'ISIMA — Mahdia</Text>
+          <Text style={styles.tagline}>Terrain ISIMA - Mahdia</Text>
         </View>
 
-        {/* Card */}
         <View style={styles.card}>
-
-          {/* Tab Switcher */}
           <View style={styles.tabs}>
             <Animated.View style={[styles.tabIndicator, { left: indicatorLeft }]} />
             <TouchableOpacity
@@ -186,12 +249,10 @@ export default function AuthScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* ── LOGIN FORM ── */}
-          {mode === 'login' && (
+          {mode === 'login' ? (
             <View style={styles.form}>
               <Field
                 label="Email"
-                icon="📧"
                 value={loginEmail}
                 onChangeText={setLoginEmail}
                 placeholder="votre@email.com"
@@ -202,10 +263,9 @@ export default function AuthScreen() {
               />
               <Field
                 label="Mot de passe"
-                icon="🔒"
                 value={loginPassword}
                 onChangeText={setLoginPassword}
-                placeholder="••••••••"
+                placeholder="********"
                 secureTextEntry
                 error={loginErrors.password}
               />
@@ -216,36 +276,43 @@ export default function AuthScreen() {
                 activeOpacity={0.85}
                 disabled={loading}
               >
-                {loading
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.btnText}>Se connecter →</Text>
-                }
+                {loading ? <ActivityIndicator color={COLORS.green} /> : <Text style={styles.btnText}>Se connecter</Text>}
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => switchMode('register')}>
                 <Text style={styles.switchText}>
-                  Pas encore de compte ?{' '}
-                  <Text style={styles.switchLink}>S'inscrire</Text>
+                  Pas encore de compte ? <Text style={styles.switchLink}>S'inscrire</Text>
                 </Text>
               </TouchableOpacity>
+              {lastSignupEmail ? (
+                <TouchableOpacity
+                  onPress={async () => {
+                    const { error } = await resendSignupConfirmation(lastSignupEmail);
+                    if (error) {
+                      Alert.alert('Echec renvoi', error.message);
+                      return;
+                    }
+                    Alert.alert('Email renvoye', `Un nouveau mail a ete envoye a ${lastSignupEmail}.`);
+                  }}
+                >
+                  <Text style={styles.switchText}>
+                    Pas recu ? <Text style={styles.switchLink}>Renvoyer l email</Text>
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
-          )}
-
-          {/* ── REGISTER FORM ── */}
-          {mode === 'register' && (
+          ) : (
             <View style={styles.form}>
               <Field
                 label="Nom complet"
-                icon="👤"
                 value={regFullName}
                 onChangeText={setRegFullName}
-                placeholder="Prénom Nom"
+                placeholder="Prenom Nom"
                 autoCapitalize="words"
                 error={regErrors.fullName}
               />
               <Field
-                label="Nom d'utilisateur"
-                icon="🏷️"
+                label="Nom utilisateur"
                 value={regUsername}
                 onChangeText={(t) => setRegUsername(t.toLowerCase().replace(/\s/g, '_'))}
                 placeholder="nom_utilisateur"
@@ -255,7 +322,6 @@ export default function AuthScreen() {
               />
               <Field
                 label="Email"
-                icon="📧"
                 value={regEmail}
                 onChangeText={setRegEmail}
                 placeholder="votre@email.com"
@@ -265,28 +331,18 @@ export default function AuthScreen() {
                 error={regErrors.email}
               />
               <Field
-                label="N° Étudiant (optionnel)"
-                icon="🎓"
-                value={regStudentId}
-                onChangeText={setRegStudentId}
-                placeholder="ex: 2024ISIMA001"
-                autoCapitalize="characters"
-              />
-              <Field
                 label="Mot de passe"
-                icon="🔒"
                 value={regPassword}
                 onChangeText={setRegPassword}
-                placeholder="••••••••  (min 6 caractères)"
+                placeholder="******** (min 6 caracteres)"
                 secureTextEntry
                 error={regErrors.password}
               />
               <Field
-                label="Confirmer le mot de passe"
-                icon="🔑"
+                label="Confirmer mot de passe"
                 value={regConfirm}
                 onChangeText={setRegConfirm}
-                placeholder="••••••••"
+                placeholder="********"
                 secureTextEntry
                 error={regErrors.confirm}
               />
@@ -297,120 +353,130 @@ export default function AuthScreen() {
                 activeOpacity={0.85}
                 disabled={loading}
               >
-                {loading
-                  ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.btnText}>Créer mon compte →</Text>
-                }
+                {loading ? <ActivityIndicator color={COLORS.green} /> : <Text style={styles.btnText}>Creer mon compte</Text>}
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => switchMode('login')}>
                 <Text style={styles.switchText}>
-                  Déjà un compte ?{' '}
-                  <Text style={styles.switchLink}>Se connecter</Text>
+                  Deja un compte ? <Text style={styles.switchLink}>Se connecter</Text>
                 </Text>
               </TouchableOpacity>
             </View>
           )}
         </View>
 
-        <Text style={styles.footer}>ISIMA Mahdia © 2025</Text>
+        <Text style={styles.footer}>ISIMA Mahdia 2026</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────
-const BLUE  = '#0066FF';
-const GREEN = '#00C896';
-const DARK  = '#0A1628';
-const CARD  = '#111E33';
-const BORDER = '#1E2D44';
-
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: DARK },
+  root: { flex: 1, backgroundColor: COLORS.bg },
 
-  // Background decorations
-  bgCircle1: {
-    position: 'absolute', width: 300, height: 300,
-    borderRadius: 150, backgroundColor: '#0066FF18',
-    top: -80, right: -80,
+  gradientTop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 300,
+    backgroundColor: 'rgba(43, 230, 123, 0.05)',
   },
-  bgCircle2: {
-    position: 'absolute', width: 200, height: 200,
-    borderRadius: 100, backgroundColor: '#00C89610',
-    bottom: 100, left: -60,
-  },
-  bgCircle3: {
-    position: 'absolute', width: 150, height: 150,
-    borderRadius: 75, backgroundColor: '#0066FF0A',
-    top: height * 0.35, left: width * 0.6,
+  gradientBottom: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 200,
+    backgroundColor: 'rgba(43, 230, 123, 0.02)',
   },
 
   scroll: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 40 },
 
-  // Header
   header: { alignItems: 'center', paddingTop: 60, paddingBottom: 32 },
   logoBox: {
-    width: 80, height: 80, borderRadius: 24,
-    backgroundColor: '#0066FF22', borderWidth: 2,
-    borderColor: '#0066FF55', alignItems: 'center',
-    justifyContent: 'center', marginBottom: 14,
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: COLORS.greenDim,
+    borderWidth: 1,
+    borderColor: COLORS.greenBorderActive,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
-  logoEmoji: { fontSize: 38 },
   appName: {
-    fontSize: 36, fontWeight: '900', color: '#FFFFFF',
-    letterSpacing: 6, fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif-black',
+    fontSize: 36,
+    fontWeight: '900',
+    color: COLORS.white,
+    letterSpacing: 6,
+    fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif-black',
   },
-  tagline: { fontSize: 12, color: '#5A7A9A', marginTop: 6, letterSpacing: 1.5 },
+  tagline: { fontSize: 12, color: COLORS.textSecondary, marginTop: 6, letterSpacing: 1.5 },
 
-  // Card
   card: {
-    backgroundColor: CARD, borderRadius: 24,
-    borderWidth: 1, borderColor: BORDER,
+    ...GLASS.panel,
+    borderRadius: 24,
     overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.4, shadowRadius: 24, elevation: 16,
   },
 
-  // Tabs
   tabs: {
-    flexDirection: 'row', position: 'relative',
-    borderBottomWidth: 1, borderBottomColor: BORDER,
+    flexDirection: 'row',
+    position: 'relative',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.greenBorder,
     height: 52,
   },
   tabIndicator: {
-    position: 'absolute', bottom: 0, height: 3,
-    width: '48%', backgroundColor: BLUE, borderRadius: 2,
+    position: 'absolute',
+    bottom: 0,
+    height: 3,
+    width: '48%',
+    backgroundColor: COLORS.green,
+    borderRadius: 2,
   },
   tab: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#5A7A9A' },
-  tabTextActive: { color: '#FFFFFF' },
+  tabText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
+  tabTextActive: { color: COLORS.white, fontWeight: '800' },
 
-  // Form
   form: { padding: 24, gap: 4 },
   fieldWrap: { marginBottom: 14 },
-  fieldLabel: { fontSize: 12, fontWeight: '700', color: '#8AACCC', marginBottom: 6, letterSpacing: 0.5 },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: COLORS.textSecondary,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
   input: {
-    backgroundColor: '#0A1628', borderWidth: 1, borderColor: BORDER,
-    borderRadius: 12, paddingHorizontal: 16, paddingVertical: 13,
-    fontSize: 15, color: '#E8F0FE',
+    backgroundColor: COLORS.inputBg,
+    borderWidth: 1,
+    borderColor: COLORS.greenBorder,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: COLORS.inputText,
   },
-  inputError: { borderColor: '#FF4D4D' },
-  fieldError: { fontSize: 11, color: '#FF6B6B', marginTop: 4, marginLeft: 4 },
+  inputError: { borderColor: COLORS.red },
+  fieldError: { fontSize: 11, color: COLORS.red, marginTop: 4, marginLeft: 4 },
 
-  // Buttons
   btn: {
-    backgroundColor: BLUE, borderRadius: 14, paddingVertical: 15,
-    alignItems: 'center', marginTop: 8, marginBottom: 16,
-    shadowColor: BLUE, shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4, shadowRadius: 12, elevation: 8,
+    backgroundColor: COLORS.greenDim,
+    borderWidth: 1,
+    borderColor: COLORS.green,
+    borderRadius: 16,
+    paddingVertical: 15,
+    alignItems: 'center',
+    marginTop: 8,
+    marginBottom: 16,
   },
-  btnGreen: { backgroundColor: GREEN, shadowColor: GREEN },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+  btnGreen: { backgroundColor: COLORS.greenDimStrong },
+  btnDisabled: { opacity: 0.5 },
+  btnText: { color: COLORS.green, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
 
-  switchText: { textAlign: 'center', fontSize: 13, color: '#5A7A9A' },
-  switchLink: { color: BLUE, fontWeight: '700' },
+  switchText: { textAlign: 'center', fontSize: 13, color: COLORS.textSecondary },
+  switchLink: { color: COLORS.green, fontWeight: '700' },
 
-  footer: { textAlign: 'center', color: '#2A3A55', fontSize: 11, marginTop: 28, letterSpacing: 1 },
+  footer: { textAlign: 'center', color: COLORS.textTertiary, fontSize: 11, marginTop: 28, letterSpacing: 1 },
 });

@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import { supabase } from '../services/supabase';
 import { registerPushTokenIfAvailable } from '../services/pushService';
+import { COLORS } from '../theme';
 
 import AuthScreen from '../screens/AuthScreen';
 import FixtureChatScreen from '../screens/FixtureChatScreen';
@@ -39,7 +40,7 @@ export default function AppNavigator() {
   if (session === undefined) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2BE67B" />
+        <ActivityIndicator size="large" color={COLORS.green} />
       </View>
     );
   }
@@ -65,7 +66,7 @@ export default function AppNavigator() {
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#06120C',
+    backgroundColor: COLORS.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },

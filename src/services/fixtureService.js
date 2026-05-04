@@ -1,9 +1,8 @@
-// src/services/fixtureService.js
 import { supabase } from './supabase';
 
-// ── Get open/upcoming fixtures ────────────────────────────────
 export async function getFixtures() {
   const today = new Date().toISOString().split('T')[0];
+
   const { data, error } = await supabase
     .from('fixtures')
     .select(`
@@ -15,24 +14,23 @@ export async function getFixtures() {
     .eq('visibility', 'public')
     .neq('status', 'cancelled')
     .order('date', { ascending: true });
-  const filtered = (data || []).filter((f) => {
-    if (!f.reservations) {
+
+  const filtered = (data || []).filter((fixture) => {
+    if (!fixture.reservations) {
       return true;
     }
 
-    // PostgREST can return to-one embeds as object, and in some setups as array.
-    const reservationStatus = Array.isArray(f.reservations)
-      ? f.reservations[0]?.status
-      : f.reservations?.status;
+    const reservationStatus = Array.isArray(fixture.reservations)
+      ? fixture.reservations[0]?.status
+      : fixture.reservations?.status;
 
     return reservationStatus === 'confirmed';
   });
+
   return { data: filtered, error };
 }
 
-// ── Join a fixture team ───────────────────────────────────────
 export async function joinFixture({ fixtureId, userId, team }) {
-  // Check if already joined
   const { data: existing } = await supabase
     .from('fixture_players')
     .select('id')
@@ -41,7 +39,7 @@ export async function joinFixture({ fixtureId, userId, team }) {
     .single();
 
   if (existing) {
-    return { error: { message: 'Vous avez déjà rejoint ce match.' } };
+    return { error: { message: 'Vous avez deja rejoint ce match.' } };
   }
 
   const { data, error } = await supabase
@@ -53,17 +51,16 @@ export async function joinFixture({ fixtureId, userId, team }) {
   return { data, error };
 }
 
-// ── Leave a fixture ───────────────────────────────────────────
 export async function leaveFixture({ fixtureId, userId }) {
   const { error } = await supabase
     .from('fixture_players')
     .delete()
     .eq('fixture_id', fixtureId)
     .eq('user_id', userId);
+
   return { error };
 }
 
-// ── Create a fixture from a reservation ──────────────────────
 export async function createFixture({
   reservationId,
   createdBy,
@@ -92,6 +89,7 @@ export async function createFixture({
     })
     .select()
     .single();
+
   return { data, error };
 }
 
@@ -113,7 +111,7 @@ export async function getUserChatFixtures(userId) {
 
   const joinedFixtures = (joinedRows || [])
     .map((row) => row.fixtures)
-    .filter((f) => f && f.visibility === 'public' && f.status !== 'cancelled');
+    .filter((fixture) => fixture && fixture.visibility === 'public' && fixture.status !== 'cancelled');
 
   const map = new Map();
   [...(created || []), ...joinedFixtures].forEach((fixture) => {
