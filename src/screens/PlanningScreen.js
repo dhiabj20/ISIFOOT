@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -9,10 +9,18 @@ import {
   StatusBar,
 } from 'react-native';
 import { getReservationsByDate } from '../services/reservationService';
-import { COLORS, TIME_SLOTS } from '../theme';
+import { TIME_SLOTS } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { GlassBackground, ScreenHeader } from '../components';
 
 const daysOfWeek = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+
+function toLocalDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 function getWeekDays(baseDate) {
   const days = [];
@@ -25,6 +33,8 @@ function getWeekDays(baseDate) {
 }
 
 export default function PlanningScreen({ navigation }) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -37,7 +47,7 @@ export default function PlanningScreen({ navigation }) {
 
   const loadReservations = useCallback(async () => {
     setLoading(true);
-    const iso = selectedDate.toISOString().split('T')[0];
+    const iso = toLocalDateKey(selectedDate);
     const { data } = await getReservationsByDate(iso);
     setReservations(data || []);
     setLoading(false);
@@ -68,9 +78,9 @@ export default function PlanningScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <GlassBackground />
-      <ScreenHeader title="Planning du Terrain" navigation={navigation} />
+      <ScreenHeader title="Planning du Terrain" showBack={false} navigation={navigation} />
 
       <View style={styles.weekNav}>
         <TouchableOpacity onPress={() => shiftWeek(-1)} style={styles.navArrow}>
@@ -105,17 +115,17 @@ export default function PlanningScreen({ navigation }) {
 
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: COLORS.green }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.green }]} />
           <Text style={styles.legendText}>Disponible</Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: COLORS.red }]} />
+          <View style={[styles.legendDot, { backgroundColor: colors.red }]} />
           <Text style={styles.legendText}>Reserve</Text>
         </View>
       </View>
 
       {loading ? (
-        <ActivityIndicator style={styles.loadingIndicator} color={COLORS.green} size="large" />
+        <ActivityIndicator style={styles.loadingIndicator} color={colors.green} size="large" />
       ) : (
         <ScrollView contentContainerStyle={styles.slotsWrap} showsVerticalScrollIndicator={false}>
           {TIME_SLOTS.map((slot) => {
@@ -135,7 +145,7 @@ export default function PlanningScreen({ navigation }) {
                     </>
                   ) : (
                     <TouchableOpacity
-                      onPress={() => navigation.navigate('Reservation', { date: selectedDate.toISOString().split('T')[0], slot })}
+                      onPress={() => navigation.navigate('Reservation', { date: toLocalDateKey(selectedDate), slot })}
                     >
                       <Text style={styles.slotFree}>Disponible - Reserver</Text>
                     </TouchableOpacity>
@@ -152,10 +162,11 @@ export default function PlanningScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
-  loadingIndicator: { marginTop: 40 },
-  bottomSpacer: { height: 40 },
+function createStyles(colors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    loadingIndicator: { marginTop: 40 },
+    bottomSpacer: { height: 120 },
 
   weekNav: {
     flexDirection: 'row',
@@ -164,7 +175,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   navArrow: { padding: 8 },
-  navArrowText: { color: COLORS.green, fontSize: 24, fontWeight: '300' },
+    navArrowText: { color: colors.green, fontSize: 24, fontWeight: '300' },
   weekScroll: { flex: 1 },
   dayBtn: {
     alignItems: 'center',
@@ -174,55 +185,56 @@ const styles = StyleSheet.create({
     minWidth: 44,
   },
   dayBtnSelected: {
-    backgroundColor: COLORS.greenDimStrong,
+    backgroundColor: colors.greenDimStrong,
     borderWidth: 1,
-    borderColor: COLORS.green,
+    borderColor: colors.green,
   },
   dayBtnToday: {
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: colors.bgCard,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
   },
-  dayName: { color: COLORS.textSecondary, fontSize: 11, fontWeight: '600' },
-  dayNum: { color: COLORS.white, fontSize: 17, fontWeight: '800', marginTop: 2 },
-  dayTextSelected: { color: COLORS.green },
+    dayName: { color: colors.textSecondary, fontSize: 11, fontWeight: '600' },
+    dayNum: { color: colors.white, fontSize: 17, fontWeight: '800', marginTop: 2 },
+    dayTextSelected: { color: colors.green },
 
   dateLabel: {
     paddingHorizontal: 20,
     fontSize: 14,
-    color: COLORS.fieldLabel,
+    color: colors.fieldLabel,
     fontWeight: '600',
     textTransform: 'capitalize',
     marginBottom: 8,
   },
 
-  legend: { flexDirection: 'row', paddingHorizontal: 20, gap: 16, marginBottom: 12 },
-  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendText: { color: COLORS.textSecondary, fontSize: 12 },
+    legend: { flexDirection: 'row', paddingHorizontal: 20, gap: 16, marginBottom: 12 },
+    legendItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    legendDot: { width: 10, height: 10, borderRadius: 5 },
+    legendText: { color: colors.textSecondary, fontSize: 12 },
 
   slotsWrap: { paddingHorizontal: 20 },
   slotRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: colors.bgCard,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
     padding: 14,
     marginBottom: 8,
   },
   slotRowBooked: {
-    borderColor: COLORS.redBorder,
-    backgroundColor: COLORS.redDim,
+    borderColor: colors.redBorder,
+    backgroundColor: colors.redDim,
   },
-  slotTime: { color: COLORS.fieldLabel, fontWeight: '800', fontSize: 14, width: 52 },
+    slotTime: { color: colors.fieldLabel, fontWeight: '800', fontSize: 14, width: 52 },
   slotInfo: { flex: 1, paddingHorizontal: 10 },
-  slotFree: { color: COLORS.green, fontWeight: '700', fontSize: 13 },
-  slotBookedLabel: { color: COLORS.red, fontWeight: '800', fontSize: 13 },
-  slotBookedBy: { color: COLORS.textSecondary, fontSize: 12, marginTop: 2 },
-  slotTeam: { color: COLORS.fieldLabel, fontSize: 12, marginTop: 2 },
-  slotDot: { width: 10, height: 10, borderRadius: 5 },
-  slotDotBooked: { backgroundColor: COLORS.red },
-  slotDotFree: { backgroundColor: COLORS.green },
-});
+    slotFree: { color: colors.green, fontWeight: '700', fontSize: 13 },
+    slotBookedLabel: { color: colors.red, fontWeight: '800', fontSize: 13 },
+    slotBookedBy: { color: colors.textSecondary, fontSize: 12, marginTop: 2 },
+    slotTeam: { color: colors.fieldLabel, fontSize: 12, marginTop: 2 },
+    slotDot: { width: 10, height: 10, borderRadius: 5 },
+    slotDotBooked: { backgroundColor: colors.red },
+    slotDotFree: { backgroundColor: colors.green },
+  });
+}

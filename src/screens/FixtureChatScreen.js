@@ -17,7 +17,7 @@ import {
   sendFixtureMessage,
   subscribeToFixtureMessages,
 } from '../services/chatService';
-import { COLORS } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { GlassBackground, ScreenHeader } from '../components';
 
 function formatTime(value) {
@@ -44,6 +44,8 @@ function mergeMessages(previous, incoming) {
 let tempIdCounter = 0;
 
 export default function FixtureChatScreen({ navigation, route }) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const fixtureId = route?.params?.fixtureId;
   const fixtureTitle = route?.params?.fixtureTitle || 'Chat du match';
 
@@ -180,12 +182,12 @@ export default function FixtureChatScreen({ navigation, route }) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 80 : 0}
     >
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <GlassBackground />
       <ScreenHeader title={fixtureTitle} navigation={navigation} />
 
       {loading ? (
-        <ActivityIndicator style={styles.loader} color={COLORS.green} />
+        <ActivityIndicator style={styles.loader} color={colors.green} />
       ) : (
         <>
           <FlatList
@@ -204,7 +206,7 @@ export default function FixtureChatScreen({ navigation, route }) {
               value={draft}
               onChangeText={setDraft}
               placeholder="Ecrire un message..."
-              placeholderTextColor={COLORS.placeholder}
+              placeholderTextColor={colors.placeholder}
               style={styles.input}
               multiline
               onSubmitEditing={handleSend}
@@ -224,61 +226,63 @@ export default function FixtureChatScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
-  loader: { marginTop: 50 },
-  list: { paddingHorizontal: 16, paddingBottom: 24 },
-  emptyText: { color: COLORS.placeholder, textAlign: 'center', marginTop: 80 },
-  messageWrap: {
-    maxWidth: '85%',
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: COLORS.greenBorder,
-  },
-  messageMine: {
-    alignSelf: 'flex-end',
-    backgroundColor: COLORS.greenDim,
-    borderColor: COLORS.greenBorderActive,
-  },
-  messageOther: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.bgCard,
-  },
-  messageAuthor: { color: COLORS.fieldLabel, fontSize: 11, marginBottom: 4, fontWeight: '700' },
-  messageText: { color: COLORS.white, fontSize: 14 },
-  messageOptimistic: { opacity: 0.5 },
-  messageTime: { color: COLORS.placeholder, fontSize: 10, marginTop: 6, alignSelf: 'flex-end' },
-  composer: {
-    borderTopWidth: 1,
-    borderTopColor: COLORS.greenBorder,
-    backgroundColor: COLORS.composerBg,
-    padding: 10,
-    flexDirection: 'row',
-    gap: 8,
-    alignItems: 'flex-end',
-  },
-  input: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: COLORS.greenBorder,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    maxHeight: 100,
-    color: COLORS.inputText,
-    backgroundColor: COLORS.inputBg,
-  },
-  sendBtn: {
-    backgroundColor: COLORS.greenDim,
-    borderWidth: 1,
-    borderColor: COLORS.green,
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  sendBtnDisabled: { opacity: 0.5 },
-  sendBtnText: { color: COLORS.green, fontWeight: '800', fontSize: 12 },
-});
+function createStyles(colors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    loader: { marginTop: 50 },
+    list: { paddingHorizontal: 16, paddingBottom: 24 },
+    emptyText: { color: colors.placeholder, textAlign: 'center', marginTop: 80 },
+    messageWrap: {
+      maxWidth: '85%',
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      marginBottom: 10,
+      borderWidth: 1,
+      borderColor: colors.greenBorder,
+    },
+    messageMine: {
+      alignSelf: 'flex-end',
+      backgroundColor: colors.greenDim,
+      borderColor: colors.greenBorderActive,
+    },
+    messageOther: {
+      alignSelf: 'flex-start',
+      backgroundColor: colors.bgCard,
+    },
+    messageAuthor: { color: colors.fieldLabel, fontSize: 11, marginBottom: 4, fontWeight: '700' },
+    messageText: { color: colors.white, fontSize: 14 },
+    messageOptimistic: { opacity: 0.5 },
+    messageTime: { color: colors.placeholder, fontSize: 10, marginTop: 6, alignSelf: 'flex-end' },
+    composer: {
+      borderTopWidth: 1,
+      borderTopColor: colors.greenBorder,
+      backgroundColor: colors.composerBg,
+      padding: 10,
+      flexDirection: 'row',
+      gap: 8,
+      alignItems: 'flex-end',
+    },
+    input: {
+      flex: 1,
+      borderWidth: 1,
+      borderColor: colors.greenBorder,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      maxHeight: 100,
+      color: colors.inputText,
+      backgroundColor: colors.inputBg,
+    },
+    sendBtn: {
+      backgroundColor: colors.greenDim,
+      borderWidth: 1,
+      borderColor: colors.green,
+      borderRadius: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+    },
+    sendBtnDisabled: { opacity: 0.5 },
+    sendBtnText: { color: colors.green, fontWeight: '800', fontSize: 12 },
+  });
+}

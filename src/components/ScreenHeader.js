@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Platform, StatusBar } from 'react-native';
-import { COLORS, GLASS } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 
 export default function ScreenHeader({
   title,
@@ -10,6 +10,9 @@ export default function ScreenHeader({
   rightText,
   navigation,
 }) {
+  const { colors, glass, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, glass), [colors, glass]);
+
   const handleBack = () => {
     if (onBack) {
       onBack();
@@ -20,7 +23,7 @@ export default function ScreenHeader({
 
   return (
     <>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <View style={styles.wrap}>
         <View style={styles.header}>
           {showBack ? (
@@ -44,24 +47,33 @@ export default function ScreenHeader({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    marginHorizontal: 14,
-    marginBottom: 8,
-    ...GLASS.panelAlt,
-    borderRadius: 18,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 46 : 28,
-    paddingBottom: 14,
-  },
-  backBtn: { width: 70 },
-  backText: { color: COLORS.green, fontWeight: '700', fontSize: 14 },
-  title: { fontSize: 20, fontWeight: '800', color: COLORS.white, flex: 1, textAlign: 'center' },
-  rightBtn: { width: 70, alignItems: 'flex-end' },
-  rightText: { color: COLORS.green, fontWeight: '700', fontSize: 14 },
-});
+function createStyles(colors, glass) {
+  return StyleSheet.create({
+    wrap: {
+      marginHorizontal: 14,
+      marginBottom: 10,
+      ...glass.panelAlt,
+      borderRadius: 18,
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: 18,
+      paddingTop: Platform.OS === 'ios' ? 46 : 28,
+      paddingBottom: 12,
+    },
+    backBtn: { width: 86 },
+    backText: { color: colors.green, fontWeight: '700', fontSize: 13 },
+    title: {
+      fontSize: 19,
+      fontWeight: '800',
+      color: colors.white,
+      flex: 1,
+      textAlign: 'center',
+      letterSpacing: 0.2,
+    },
+    rightBtn: { width: 86, alignItems: 'flex-end' },
+    rightText: { color: colors.green, fontWeight: '700', fontSize: 13 },
+  });
+}

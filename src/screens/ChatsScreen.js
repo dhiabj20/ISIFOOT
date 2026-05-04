@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { supabase } from '../services/supabase';
 import { getUserChatFixtures } from '../services/fixtureService';
-import { COLORS } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { EmptyState, GlassBackground, GlassPanel } from '../components';
 
 function formatDate(date, time) {
@@ -24,6 +24,8 @@ function formatDate(date, time) {
 }
 
 export default function ChatsScreen({ navigation }) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [fixtures, setFixtures] = useState([]);
@@ -65,13 +67,15 @@ export default function ChatsScreen({ navigation }) {
         activeOpacity={0.85}
       >
         <View style={styles.row}>
-          <Text style={styles.matchTitle}>{item.team_a_name} vs {item.team_b_name}</Text>
+          <Text style={styles.matchTitle} numberOfLines={1}>
+            {item.team_a_name} vs {item.team_b_name}
+          </Text>
           <View style={styles.badge}><Text style={styles.badgeText}>Chat</Text></View>
         </View>
         <Text style={styles.meta}>
           {formatDate(item.date, item.start_time)} - {item.start_time?.slice(0, 5)} to {item.end_time?.slice(0, 5)}
         </Text>
-        <Text style={styles.openText}>Open group chat</Text>
+        <Text style={styles.openText}>Ouvrir le chat de groupe</Text>
       </TouchableOpacity>
     </GlassPanel>
   );
@@ -80,19 +84,19 @@ export default function ChatsScreen({ navigation }) {
     return (
       <View style={[styles.root, styles.center]}>
         <GlassBackground />
-        <ActivityIndicator color={COLORS.green} size="large" />
+        <ActivityIndicator color={colors.green} size="large" />
       </View>
     );
   }
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <GlassBackground />
 
       <GlassPanel style={styles.header}>
         <Text style={styles.title}>Chats</Text>
-        <Text style={styles.sub}>Discuss with your teammates</Text>
+        <Text style={styles.sub}>Discutez avec vos coequipiers</Text>
       </GlassPanel>
 
       <FlatList
@@ -100,33 +104,35 @@ export default function ChatsScreen({ navigation }) {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.green} />}
-        ListEmptyComponent={<EmptyState title="No group chats yet" subtitle="Join or create a public fixture to start chatting." />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.green} />}
+        ListEmptyComponent={<EmptyState title="Aucun chat de groupe" subtitle="Rejoignez ou creez un match public pour commencer." />}
       />
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
-  center: { alignItems: 'center', justifyContent: 'center' },
-  header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 10, marginHorizontal: 14, marginBottom: 8 },
-  title: { color: COLORS.white, fontSize: 28, fontWeight: '900' },
-  sub: { color: COLORS.textSecondary, marginTop: 4 },
-  list: { paddingHorizontal: 16, paddingBottom: 24, paddingTop: 8, flexGrow: 1 },
-  cardWrap: { marginBottom: 12 },
-  card: { padding: 16 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  matchTitle: { color: COLORS.white, fontWeight: '800', fontSize: 16 },
-  meta: { color: COLORS.textSecondary, marginTop: 8 },
-  openText: { color: COLORS.green, marginTop: 12, fontWeight: '700' },
-  badge: {
-    backgroundColor: COLORS.greenDim,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: COLORS.greenBorder,
-  },
-  badgeText: { color: COLORS.green, fontWeight: '700', fontSize: 11 },
-});
+function createStyles(colors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    center: { alignItems: 'center', justifyContent: 'center' },
+    header: { paddingHorizontal: 20, paddingTop: 18, paddingBottom: 10, marginHorizontal: 14, marginBottom: 8 },
+    title: { color: colors.white, fontSize: 27, fontWeight: '900' },
+    sub: { color: colors.textSecondary, marginTop: 4, fontSize: 13 },
+    list: { paddingHorizontal: 16, paddingBottom: 120, paddingTop: 8, flexGrow: 1 },
+    cardWrap: { marginBottom: 12 },
+    card: { padding: 16 },
+    row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    matchTitle: { color: colors.white, fontWeight: '800', fontSize: 16, flex: 1, marginRight: 10 },
+    meta: { color: colors.textSecondary, marginTop: 8, fontSize: 13 },
+    openText: { color: colors.green, marginTop: 12, fontWeight: '700', fontSize: 13 },
+    badge: {
+      backgroundColor: colors.greenDim,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4,
+      borderWidth: 1,
+      borderColor: colors.greenBorder,
+    },
+    badgeText: { color: colors.green, fontWeight: '700', fontSize: 11 },
+  });
+}

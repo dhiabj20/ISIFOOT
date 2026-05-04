@@ -11,6 +11,7 @@ import {
   Platform,
   StatusBar,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Feather';
 import { supabase } from '../services/supabase';
 import {
   createReservation,
@@ -18,8 +19,9 @@ import {
   cancelReservation,
   getReservationsByDate,
 } from '../services/reservationService';
-import { createFixture } from '../services/fixtureService';
-import { COLORS, TIME_SLOTS } from '../theme';
+import { createFixture, joinFixture } from '../services/fixtureService';
+import { TIME_SLOTS } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { ScreenHeader, EmptyState, GlassBackground } from '../components';
 
 function getEndTime(start) {
@@ -63,8 +65,29 @@ function formatDeadline(ts) {
   }
 }
 
+function toLocalDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function isSlotPassed(dateKey, slot, now = new Date()) {
+  if (!isValidDateFormat(dateKey) || !slot) {
+    return false;
+  }
+
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const [hours, minutes] = slot.split(':').map(Number);
+  const slotDateTime = new Date(year, month - 1, day, hours, minutes, 0, 0);
+
+  return slotDateTime < now;
+}
+
 export default function ReservationScreen({ navigation, route }) {
-  const prefDate = route?.params?.date || new Date().toISOString().split('T')[0];
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const prefDate = route?.params?.date || toLocalDateKey(new Date());
   const prefSlot = route?.params?.slot || null;
 
   const [tab, setTab] = useState('new');
@@ -76,13 +99,14 @@ export default function ReservationScreen({ navigation, route }) {
   const [notes, setNotes] = useState('');
   const [teamAName, setTeamAName] = useState('Équipe A');
   const [teamBName, setTeamBName] = useState('Équipe B');
-  const [teamMax, setTeamMax] = useState('5');
+  const [teamMax, setTeamMax] = useState('6');
   const [loading, setLoading] = useState(false);
   const [myReservations, setMyReservations] = useState([]);
   const [loadingMine, setLoadingMine] = useState(false);
   const [bookedSlots, setBookedSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [nowTick, setNowTick] = useState(Date.now());
 
   useEffect(() => {
     const loadUser = async () => {
@@ -97,6 +121,14 @@ export default function ReservationScreen({ navigation, route }) {
     };
 
     loadUser();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowTick(Date.now());
+    }, 30000);
+
+    return () => clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -130,14 +162,15 @@ export default function ReservationScreen({ navigation, route }) {
   }, [route?.params?.date, route?.params?.slot]);
 
   useEffect(() => {
-    if (selectedSlot && !bookedSlots.includes(selectedSlot)) return;
-    const firstAvailable = TIME_SLOTS.find((slot) => !bookedSlots.includes(slot));
+    const now = new Date(nowTick);
+    if (selectedSlot && !bookedSlots.includes(selectedSlot) && !isSlotPassed(date, selectedSlot, now)) return;
+    const firstAvailable = TIME_SLOTS.find((slot) => !bookedSlots.includes(slot) && !isSlotPassed(date, slot, now));
     if (firstAvailable) setSelectedSlot(firstAvailable);
-  }, [bookedSlots, selectedSlot]);
+  }, [bookedSlots, selectedSlot, date, nowTick]);
 
   const hasAvailableSlot = useMemo(
-    () => TIME_SLOTS.some((slot) => !bookedSlots.includes(slot)),
-    [bookedSlots]
+    () => TIME_SLOTS.some((slot) => !bookedSlots.includes(slot) && !isSlotPassed(date, slot, new Date(nowTick))),
+    [bookedSlots, date, nowTick]
   );
 
   const loadMine = useCallback(async (uid) => {
@@ -152,7 +185,7 @@ export default function ReservationScreen({ navigation, route }) {
     setNotes('');
     setTeamAName('Équipe A');
     setTeamBName('Équipe B');
-    setTeamMax('5');
+    setTeamMax('6');
     setVisibility('private');
     setEditingId(null);
   }, []);
@@ -192,16 +225,16 @@ export default function ReservationScreen({ navigation, route }) {
       Alert.alert('Erreur', 'Ce créneau est déjà réservé.');
       return;
     }
+    if (isSlotPassed(date, selectedSlot)) {
+      Alert.alert('Erreur', 'Ce créneau est déjà passé.');
+      return;
+    }
     if (!userId) {
       Alert.alert('Erreur', 'Session utilisateur introuvable. Reconnectez-vous.');
       return;
     }
 
-    const maxPlayers = Number(teamMax);
-    if (visibility === 'public' && (!Number.isInteger(maxPlayers) || maxPlayers <= 0 || maxPlayers > 11)) {
-      Alert.alert('Erreur', 'Le nombre de joueurs par équipe doit être entre 1 et 11.');
-      return;
-    }
+    const maxPlayers = visibility === 'public' ? 6 : Number(teamMax);
 
     setLoading(true);
     const startTime = `${selectedSlot}:00`;
@@ -251,7 +284,7 @@ export default function ReservationScreen({ navigation, route }) {
             })
             .eq('id', existingFixture.id);
         } else {
-          await createFixture({
+          const { data: newFixture, error: newFixtureError } = await createFixture({
             reservationId: reservation.id,
             createdBy: userId,
             date,
@@ -262,6 +295,16 @@ export default function ReservationScreen({ navigation, route }) {
             teamAMax: maxPlayers,
             teamBMax: maxPlayers,
           });
+          if (newFixtureError) {
+            setLoading(false);
+            Alert.alert('Erreur', `Impossible de créer le match public: ${newFixtureError.message}`);
+            return;
+          }
+
+          const { error: joinError } = await joinFixture({ fixtureId: newFixture.id, userId, team: 'A' });
+          if (joinError) {
+            Alert.alert('Info', `Match créé, mais ajout automatique dans l'équipe A impossible: ${joinError.message}`);
+          }
         }
       } else {
         await supabase
@@ -294,7 +337,7 @@ export default function ReservationScreen({ navigation, route }) {
     }
 
     if (visibility === 'public') {
-      const { error: fixtureError } = await createFixture({
+      const { data: fixture, error: fixtureError } = await createFixture({
         reservationId: reservation.id,
         createdBy: userId,
         date,
@@ -315,6 +358,11 @@ export default function ReservationScreen({ navigation, route }) {
         setTab('mine');
         loadMine(userId);
         return;
+      }
+
+      const { error: joinError } = await joinFixture({ fixtureId: fixture.id, userId, team: 'A' });
+      if (joinError) {
+        Alert.alert('Info', `Réservation créée, mais ajout automatique dans l'équipe A impossible: ${joinError.message}`);
       }
     }
 
@@ -345,9 +393,9 @@ export default function ReservationScreen({ navigation, route }) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <GlassBackground />
-      <ScreenHeader title="Réservation" navigation={navigation} />
+      <ScreenHeader title="Réservation" showBack={false} navigation={navigation} />
 
       <View style={styles.tabs}>
         {['new', 'mine'].map((t) => (
@@ -374,17 +422,19 @@ export default function ReservationScreen({ navigation, route }) {
             value={date}
             onChangeText={setDate}
             placeholder="ex: 2026-05-15"
-            placeholderTextColor={COLORS.placeholder}
+            placeholderTextColor={colors.placeholder}
             keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
           />
 
           <Text style={styles.label}>Créneau horaire</Text>
           {loadingSlots ? (
-            <ActivityIndicator color={COLORS.green} style={styles.loadingSlotsIndicator} />
+            <ActivityIndicator color={colors.green} style={styles.loadingSlotsIndicator} />
           ) : (
             <View style={styles.slotsGrid}>
               {TIME_SLOTS.map((s) => {
                 const booked = bookedSlots.includes(s);
+                const passed = isSlotPassed(date, s);
+                const disabled = booked || passed;
                 const selected = selectedSlot === s;
                 return (
                   <TouchableOpacity
@@ -392,20 +442,30 @@ export default function ReservationScreen({ navigation, route }) {
                     style={[
                       styles.slotChip,
                       selected && styles.slotChipSelected,
-                      booked && styles.slotChipBooked,
+                      disabled && styles.slotChipBooked,
                     ]}
-                    onPress={() => !booked && setSelectedSlot(s)}
-                    disabled={booked}
+                    onPress={() => !disabled && setSelectedSlot(s)}
+                    disabled={disabled}
                   >
-                    <Text
-                      style={[
-                        styles.slotChipText,
-                        selected && styles.slotChipTextSelected,
-                        booked && styles.slotChipTextBooked,
-                      ]}
-                    >
-                      {booked ? `${s} (occupé)` : s}
-                    </Text>
+                    <View style={styles.slotChipContent}>
+                      <Text
+                        style={[
+                          styles.slotChipText,
+                          selected && styles.slotChipTextSelected,
+                          disabled && styles.slotChipTextBooked,
+                        ]}
+                      >
+                        {booked ? `${s} (occupé)` : s}
+                      </Text>
+                      {passed && !booked ? (
+                        <Icon
+                          name="lock"
+                          size={12}
+                          color={colors.textTertiary}
+                          style={styles.slotLockIcon}
+                        />
+                      ) : null}
+                    </View>
                   </TouchableOpacity>
                 );
               })}
@@ -439,24 +499,28 @@ export default function ReservationScreen({ navigation, route }) {
             Publique: d'autres joueurs pourront rejoindre et discuter dans le chat du match.
           </Text>
 
-          <Text style={styles.label}>Nom de l'équipe (optionnel)</Text>
-          <TextInput
-            style={styles.input}
-            value={teamName}
-            onChangeText={setTeamName}
-            placeholder="ex: Les Lions de l'ISIMA"
-            placeholderTextColor={COLORS.placeholder}
-          />
+          {visibility === 'private' && (
+            <>
+              <Text style={styles.label}>Nom de l'équipe (optionnel)</Text>
+              <TextInput
+                style={styles.input}
+                value={teamName}
+                onChangeText={setTeamName}
+                placeholder="ex: Les Lions de l'ISIMA"
+                placeholderTextColor={colors.placeholder}
+              />
 
-          <Text style={styles.label}>Notes (optionnel)</Text>
-          <TextInput
-            style={[styles.input, styles.notesInput]}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder="Infos supplémentaires..."
-            placeholderTextColor={COLORS.placeholder}
-            multiline
-          />
+              <Text style={styles.label}>Notes (optionnel)</Text>
+              <TextInput
+                style={[styles.input, styles.notesInput]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Infos supplémentaires..."
+                placeholderTextColor={colors.placeholder}
+                multiline
+              />
+            </>
+          )}
 
           {visibility === 'public' && (
             <View style={styles.publicCard}>
@@ -467,7 +531,7 @@ export default function ReservationScreen({ navigation, route }) {
                 value={teamAName}
                 onChangeText={setTeamAName}
                 placeholder="Équipe A"
-                placeholderTextColor={COLORS.placeholder}
+                placeholderTextColor={colors.placeholder}
               />
               <Text style={styles.label}>Nom équipe B</Text>
               <TextInput
@@ -475,16 +539,17 @@ export default function ReservationScreen({ navigation, route }) {
                 value={teamBName}
                 onChangeText={setTeamBName}
                 placeholder="Équipe B"
-                placeholderTextColor={COLORS.placeholder}
+                placeholderTextColor={colors.placeholder}
               />
-              <Text style={styles.label}>Joueurs max par équipe (1 à 11)</Text>
+              <Text style={styles.label}>Joueurs max par équipe (fixe: 6)</Text>
               <TextInput
                 style={styles.input}
                 value={teamMax}
                 onChangeText={setTeamMax}
                 keyboardType="number-pad"
-                placeholder="5"
-                placeholderTextColor={COLORS.placeholder}
+                placeholder="6"
+                placeholderTextColor={colors.placeholder}
+                editable={false}
               />
             </View>
           )}
@@ -505,7 +570,7 @@ export default function ReservationScreen({ navigation, route }) {
               disabled={loading || !hasAvailableSlot}
             >
               {loading ? (
-                <ActivityIndicator color={COLORS.green} />
+                <ActivityIndicator color={colors.green} />
               ) : (
                 <Text style={styles.btnText}>{editingId ? 'Modifier la réservation' : 'Réserver'}</Text>
               )}
@@ -516,7 +581,7 @@ export default function ReservationScreen({ navigation, route }) {
       ) : (
         <ScrollView contentContainerStyle={styles.mineWrap} showsVerticalScrollIndicator={false}>
           {loadingMine ? (
-            <ActivityIndicator color={COLORS.green} style={styles.loadingMineIndicator} />
+            <ActivityIndicator color={colors.green} style={styles.loadingMineIndicator} />
           ) : myReservations.length === 0 ? (
             <EmptyState title="Aucune réservation" subtitle="Réservez un créneau pour commencer !" />
           ) : (
@@ -565,10 +630,11 @@ export default function ReservationScreen({ navigation, route }) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
+function createStyles(colors) {
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
   notesInput: { height: 80, textAlignVertical: 'top' },
-  bottomSpacer: { height: 40 },
+  bottomSpacer: { height: 120 },
   loadingMineIndicator: { marginTop: 40 },
   loadingSlotsIndicator: { marginVertical: 12 },
   tabs: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 16 },
@@ -577,128 +643,137 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: colors.bgCard,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
   },
   tabActive: {
-    backgroundColor: COLORS.greenDimStrong,
-    borderColor: COLORS.green,
+    backgroundColor: colors.greenDimStrong,
+    borderColor: colors.green,
   },
-  tabText: { color: COLORS.textSecondary, fontWeight: '700', fontSize: 12 },
-  tabTextActive: { color: COLORS.green, fontWeight: '800' },
+  tabText: { color: colors.textSecondary, fontWeight: '700', fontSize: 12 },
+  tabTextActive: { color: colors.green, fontWeight: '800' },
   form: { paddingHorizontal: 20 },
-  label: { color: COLORS.fieldLabel, fontSize: 13, fontWeight: '700', marginBottom: 8, marginTop: 16 },
+  label: { color: colors.fieldLabel, fontSize: 13, fontWeight: '700', marginBottom: 8, marginTop: 16 },
   input: {
-    backgroundColor: COLORS.inputBg,
+    backgroundColor: colors.inputBg,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
     borderRadius: 14,
     paddingHorizontal: 16,
     paddingVertical: 13,
     fontSize: 14,
-    color: COLORS.inputText,
+    color: colors.inputText,
   },
   slotsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   slotChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 12,
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: colors.bgCard,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
+  },
+  slotChipContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slotLockIcon: {
+    marginLeft: 6,
   },
   slotChipSelected: {
-    backgroundColor: COLORS.greenDimStrong,
-    borderColor: COLORS.green,
+    backgroundColor: colors.greenDimStrong,
+    borderColor: colors.green,
   },
-  slotChipBooked: { backgroundColor: COLORS.bgCardAlt, borderColor: COLORS.textTertiary },
-  slotChipText: { color: COLORS.textSecondary, fontWeight: '700', fontSize: 13 },
-  slotChipTextSelected: { color: COLORS.green, fontWeight: '800' },
-  slotChipTextBooked: { color: COLORS.textTertiary },
-  warningText: { color: COLORS.red, fontWeight: '700', marginTop: 12 },
+  slotChipBooked: { backgroundColor: colors.bgCardAlt, borderColor: colors.textTertiary },
+  slotChipText: { color: colors.textSecondary, fontWeight: '700', fontSize: 13 },
+  slotChipTextSelected: { color: colors.green, fontWeight: '800' },
+  slotChipTextBooked: { color: colors.textTertiary },
+  warningText: { color: colors.red, fontWeight: '700', marginTop: 12 },
   visibilityRow: { flexDirection: 'row', gap: 10 },
   visibilityBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
     borderRadius: 12,
     alignItems: 'center',
     paddingVertical: 10,
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: colors.bgCard,
   },
   visibilityBtnActive: {
-    borderColor: COLORS.green,
-    backgroundColor: COLORS.greenDim,
+    borderColor: colors.green,
+    backgroundColor: colors.greenDim,
   },
-  visibilityText: { color: COLORS.fieldLabel, fontWeight: '700' },
-  visibilityTextActive: { color: COLORS.green, fontWeight: '800' },
-  visibilityHint: { color: COLORS.placeholder, fontSize: 12, marginTop: 8 },
+  visibilityText: { color: colors.fieldLabel, fontWeight: '700' },
+  visibilityTextActive: { color: colors.green, fontWeight: '800' },
+  visibilityHint: { color: colors.placeholder, fontSize: 12, marginTop: 8 },
   publicCard: {
     marginTop: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
     paddingHorizontal: 12,
     paddingBottom: 12,
-    backgroundColor: COLORS.bgCardAlt,
+    backgroundColor: colors.bgCardAlt,
   },
-  publicCardTitle: { color: COLORS.white, fontWeight: '800', marginTop: 12 },
+  publicCardTitle: { color: colors.white, fontWeight: '800', marginTop: 12 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 24 },
   btn: {
     flex: 1,
-    backgroundColor: COLORS.greenDimStrong,
+    backgroundColor: colors.greenDimStrong,
     borderWidth: 1,
-    borderColor: COLORS.green,
+    borderColor: colors.green,
     borderRadius: 16,
     paddingVertical: 15,
     alignItems: 'center',
   },
   btnCancel: {
-    backgroundColor: COLORS.redDim,
-    borderColor: COLORS.redBorder,
+    backgroundColor: colors.redDim,
+    borderColor: colors.redBorder,
   },
   btnDisabled: { opacity: 0.5 },
-  btnText: { color: COLORS.green, fontWeight: '800', fontSize: 15 },
+  btnText: { color: colors.green, fontWeight: '800', fontSize: 15 },
   mineWrap: { paddingHorizontal: 20, paddingTop: 4 },
   resCard: {
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: colors.bgCard,
     borderRadius: 16,
     padding: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
   },
   resCardCancelled: { opacity: 0.45 },
   resRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  resDate: { color: COLORS.white, fontWeight: '800', fontSize: 15 },
+  resDate: { color: colors.white, fontWeight: '800', fontSize: 15 },
   resBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 },
-  badgeConfirmed: { backgroundColor: COLORS.greenDim },
-  badgePending: { backgroundColor: COLORS.yellowDim },
-  badgeCancelled: { backgroundColor: COLORS.redDim },
-  resBadgeText: { fontSize: 11, fontWeight: '700', color: COLORS.whiteMuted },
-  resTime: { color: COLORS.fieldLabel, fontSize: 13, marginBottom: 4 },
-  resTeam: { color: COLORS.textSecondary, fontSize: 13 },
-  pendingHint: { color: COLORS.yellow, marginTop: 6, fontSize: 12 },
+  badgeConfirmed: { backgroundColor: colors.greenDim },
+  badgePending: { backgroundColor: colors.yellowDim },
+  badgeCancelled: { backgroundColor: colors.redDim },
+  resBadgeText: { fontSize: 11, fontWeight: '700', color: colors.whiteMuted },
+  resTime: { color: colors.fieldLabel, fontSize: 13, marginBottom: 4 },
+  resTeam: { color: colors.textSecondary, fontSize: 13 },
+  pendingHint: { color: colors.yellow, marginTop: 6, fontSize: 12 },
   resActions: { flexDirection: 'row', gap: 10, marginTop: 12 },
   editBtn: {
     flex: 1,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
     paddingVertical: 8,
     alignItems: 'center',
-    backgroundColor: COLORS.greenDim,
+    backgroundColor: colors.greenDim,
   },
-  editBtnText: { color: COLORS.green, fontWeight: '700', fontSize: 13 },
+  editBtnText: { color: colors.green, fontWeight: '700', fontSize: 13 },
   cancelBtn: {
     flex: 1,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.redBorder,
+    borderColor: colors.redBorder,
     paddingVertical: 8,
     alignItems: 'center',
-    backgroundColor: COLORS.redDim,
+    backgroundColor: colors.redDim,
   },
-  cancelBtnText: { color: COLORS.red, fontWeight: '700', fontSize: 13 },
-});
+  cancelBtnText: { color: colors.red, fontWeight: '700', fontSize: 13 },
+  });
+}

@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
 import { resendSignupConfirmation, signIn, signUp } from '../services/authService';
-import { COLORS, GLASS } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { GlassBackground } from '../components';
 
 const validators = {
@@ -25,20 +25,6 @@ const validators = {
   username: (v) => (/^[a-zA-Z0-9_]{3,20}$/.test(v) ? null : '3-20 caracteres alphanumeriques'),
   confirmPassword: (v, password) => (v === password ? null : 'Les mots de passe ne correspondent pas'),
 };
-
-function Field({ label, error, ...props }) {
-  return (
-    <View style={styles.fieldWrap}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <TextInput
-        style={[styles.input, error && styles.inputError]}
-        placeholderTextColor={COLORS.placeholder}
-        {...props}
-      />
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
-    </View>
-  );
-}
 
 function mapSignupError(message) {
   const value = (message || '').toLowerCase();
@@ -56,7 +42,24 @@ function mapSignupError(message) {
   return message || 'Erreur inscription.';
 }
 
+function Field({ label, error, styles, placeholderColor, ...props }) {
+  return (
+    <View style={styles.fieldWrap}>
+      <Text style={styles.fieldLabel}>{label}</Text>
+      <TextInput
+        style={[styles.input, error && styles.inputError]}
+        placeholderTextColor={placeholderColor}
+        {...props}
+      />
+      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
+    </View>
+  );
+}
+
 export default function AuthScreen() {
+  const { colors, glass, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, glass), [colors, glass]);
+
   const [mode, setMode] = useState('login');
   const [loading, setLoading] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
@@ -110,10 +113,7 @@ export default function AuthScreen() {
     if (error) {
       const value = (error.message || '').toLowerCase();
       if (value.includes('email not confirmed')) {
-        Alert.alert(
-          'Email non confirme',
-          'Confirmez votre email avant de vous connecter. Vous pouvez renvoyer le mail depuis cet ecran.'
-        );
+        Alert.alert('Email non confirme', 'Confirmez votre email avant de vous connecter.');
         return;
       }
       Alert.alert(
@@ -173,28 +173,24 @@ export default function AuthScreen() {
       ? 'Cet email semble deja inscrit. Si vous ne recevez rien, appuyez sur "Renvoyer l email".'
       : 'Verifiez votre email pour confirmer votre compte, puis connectez-vous.';
 
-    Alert.alert(
-      'Verification email',
-      info,
-      [
-        {
-          text: 'Renvoyer l email',
-          onPress: async () => {
-            const targetEmail = regEmail.trim().toLowerCase();
-            if (!targetEmail) {
-              return;
-            }
-            const { error: resendError } = await resendSignupConfirmation(targetEmail);
-            if (resendError) {
-              Alert.alert('Echec renvoi', resendError.message);
-              return;
-            }
-            Alert.alert('Email renvoye', `Un nouveau mail a ete envoye a ${targetEmail}.`);
-          },
+    Alert.alert('Verification email', info, [
+      {
+        text: 'Renvoyer l email',
+        onPress: async () => {
+          const targetEmail = regEmail.trim().toLowerCase();
+          if (!targetEmail) {
+            return;
+          }
+          const { error: resendError } = await resendSignupConfirmation(targetEmail);
+          if (resendError) {
+            Alert.alert('Echec renvoi', resendError.message);
+            return;
+          }
+          Alert.alert('Email renvoye', `Un nouveau mail a ete envoye a ${targetEmail}.`);
         },
-        { text: 'OK', onPress: () => switchMode('login') },
-      ]
-    );
+      },
+      { text: 'OK', onPress: () => switchMode('login') },
+    ]);
   };
 
   const indicatorLeft = slideAnim.interpolate({
@@ -207,7 +203,7 @@ export default function AuthScreen() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <GlassBackground />
 
       <View style={styles.gradientTop} />
@@ -220,7 +216,7 @@ export default function AuthScreen() {
       >
         <View style={styles.header}>
           <View style={styles.logoBox}>
-            <Icon name="soccer" size={40} color={COLORS.green} />
+            <Icon name="soccer" size={40} color={colors.green} />
           </View>
           <Text style={styles.appName}>ISIFOOT</Text>
           <Text style={styles.tagline}>Terrain ISIMA - Mahdia</Text>
@@ -229,29 +225,19 @@ export default function AuthScreen() {
         <View style={styles.card}>
           <View style={styles.tabs}>
             <Animated.View style={[styles.tabIndicator, { left: indicatorLeft }]} />
-            <TouchableOpacity
-              style={styles.tab}
-              onPress={() => switchMode('login')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabText, mode === 'login' && styles.tabTextActive]}>
-                Connexion
-              </Text>
+            <TouchableOpacity style={styles.tab} onPress={() => switchMode('login')} activeOpacity={0.8}>
+              <Text style={[styles.tabText, mode === 'login' && styles.tabTextActive]}>Connexion</Text>
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.tab}
-              onPress={() => switchMode('register')}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.tabText, mode === 'register' && styles.tabTextActive]}>
-                Inscription
-              </Text>
+            <TouchableOpacity style={styles.tab} onPress={() => switchMode('register')} activeOpacity={0.8}>
+              <Text style={[styles.tabText, mode === 'register' && styles.tabTextActive]}>Inscription</Text>
             </TouchableOpacity>
           </View>
 
           {mode === 'login' ? (
             <View style={styles.form}>
               <Field
+                styles={styles}
+                placeholderColor={colors.placeholder}
                 label="Email"
                 value={loginEmail}
                 onChangeText={setLoginEmail}
@@ -262,6 +248,8 @@ export default function AuthScreen() {
                 error={loginErrors.email}
               />
               <Field
+                styles={styles}
+                placeholderColor={colors.placeholder}
                 label="Mot de passe"
                 value={loginPassword}
                 onChangeText={setLoginPassword}
@@ -276,7 +264,7 @@ export default function AuthScreen() {
                 activeOpacity={0.85}
                 disabled={loading}
               >
-                {loading ? <ActivityIndicator color={COLORS.green} /> : <Text style={styles.btnText}>Se connecter</Text>}
+                {loading ? <ActivityIndicator color={colors.green} /> : <Text style={styles.btnText}>Se connecter</Text>}
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => switchMode('register')}>
@@ -304,6 +292,8 @@ export default function AuthScreen() {
           ) : (
             <View style={styles.form}>
               <Field
+                styles={styles}
+                placeholderColor={colors.placeholder}
                 label="Nom complet"
                 value={regFullName}
                 onChangeText={setRegFullName}
@@ -312,6 +302,8 @@ export default function AuthScreen() {
                 error={regErrors.fullName}
               />
               <Field
+                styles={styles}
+                placeholderColor={colors.placeholder}
                 label="Nom utilisateur"
                 value={regUsername}
                 onChangeText={(t) => setRegUsername(t.toLowerCase().replace(/\s/g, '_'))}
@@ -321,6 +313,8 @@ export default function AuthScreen() {
                 error={regErrors.username}
               />
               <Field
+                styles={styles}
+                placeholderColor={colors.placeholder}
                 label="Email"
                 value={regEmail}
                 onChangeText={setRegEmail}
@@ -331,6 +325,8 @@ export default function AuthScreen() {
                 error={regErrors.email}
               />
               <Field
+                styles={styles}
+                placeholderColor={colors.placeholder}
                 label="Mot de passe"
                 value={regPassword}
                 onChangeText={setRegPassword}
@@ -339,6 +335,8 @@ export default function AuthScreen() {
                 error={regErrors.password}
               />
               <Field
+                styles={styles}
+                placeholderColor={colors.placeholder}
                 label="Confirmer mot de passe"
                 value={regConfirm}
                 onChangeText={setRegConfirm}
@@ -353,7 +351,7 @@ export default function AuthScreen() {
                 activeOpacity={0.85}
                 disabled={loading}
               >
-                {loading ? <ActivityIndicator color={COLORS.green} /> : <Text style={styles.btnText}>Creer mon compte</Text>}
+                {loading ? <ActivityIndicator color={colors.green} /> : <Text style={styles.btnText}>Creer mon compte</Text>}
               </TouchableOpacity>
 
               <TouchableOpacity onPress={() => switchMode('login')}>
@@ -371,112 +369,114 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
+function createStyles(colors, glass) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
 
-  gradientTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 300,
-    backgroundColor: 'rgba(43, 230, 123, 0.05)',
-  },
-  gradientBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 200,
-    backgroundColor: 'rgba(43, 230, 123, 0.02)',
-  },
+    gradientTop: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      right: 0,
+      height: 300,
+      backgroundColor: colors.glowPrimary,
+    },
+    gradientBottom: {
+      position: 'absolute',
+      bottom: 0,
+      left: 0,
+      right: 0,
+      height: 200,
+      backgroundColor: colors.glowSecondary,
+    },
 
-  scroll: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 40 },
+    scroll: { flexGrow: 1, paddingHorizontal: 20, paddingBottom: 40 },
 
-  header: { alignItems: 'center', paddingTop: 60, paddingBottom: 32 },
-  logoBox: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: COLORS.greenDim,
-    borderWidth: 1,
-    borderColor: COLORS.greenBorderActive,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 14,
-  },
-  appName: {
-    fontSize: 36,
-    fontWeight: '900',
-    color: COLORS.white,
-    letterSpacing: 6,
-    fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif-black',
-  },
-  tagline: { fontSize: 12, color: COLORS.textSecondary, marginTop: 6, letterSpacing: 1.5 },
+    header: { alignItems: 'center', paddingTop: 60, paddingBottom: 32 },
+    logoBox: {
+      width: 80,
+      height: 80,
+      borderRadius: 24,
+      backgroundColor: colors.greenDim,
+      borderWidth: 1,
+      borderColor: colors.greenBorderActive,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginBottom: 14,
+    },
+    appName: {
+      fontSize: 36,
+      fontWeight: '900',
+      color: colors.white,
+      letterSpacing: 6,
+      fontFamily: Platform.OS === 'ios' ? 'Helvetica Neue' : 'sans-serif-black',
+    },
+    tagline: { fontSize: 12, color: colors.textSecondary, marginTop: 6, letterSpacing: 1.5 },
 
-  card: {
-    ...GLASS.panel,
-    borderRadius: 24,
-    overflow: 'hidden',
-  },
+    card: {
+      ...glass.panel,
+      borderRadius: 24,
+      overflow: 'hidden',
+    },
 
-  tabs: {
-    flexDirection: 'row',
-    position: 'relative',
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.greenBorder,
-    height: 52,
-  },
-  tabIndicator: {
-    position: 'absolute',
-    bottom: 0,
-    height: 3,
-    width: '48%',
-    backgroundColor: COLORS.green,
-    borderRadius: 2,
-  },
-  tab: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  tabText: { fontSize: 14, fontWeight: '600', color: COLORS.textSecondary },
-  tabTextActive: { color: COLORS.white, fontWeight: '800' },
+    tabs: {
+      flexDirection: 'row',
+      position: 'relative',
+      borderBottomWidth: 1,
+      borderBottomColor: colors.greenBorder,
+      height: 52,
+    },
+    tabIndicator: {
+      position: 'absolute',
+      bottom: 0,
+      height: 3,
+      width: '48%',
+      backgroundColor: colors.green,
+      borderRadius: 2,
+    },
+    tab: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    tabText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+    tabTextActive: { color: colors.white, fontWeight: '800' },
 
-  form: { padding: 24, gap: 4 },
-  fieldWrap: { marginBottom: 14 },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: COLORS.textSecondary,
-    marginBottom: 6,
-    letterSpacing: 0.5,
-  },
-  input: {
-    backgroundColor: COLORS.inputBg,
-    borderWidth: 1,
-    borderColor: COLORS.greenBorder,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    fontSize: 15,
-    color: COLORS.inputText,
-  },
-  inputError: { borderColor: COLORS.red },
-  fieldError: { fontSize: 11, color: COLORS.red, marginTop: 4, marginLeft: 4 },
+    form: { padding: 24, gap: 4 },
+    fieldWrap: { marginBottom: 14 },
+    fieldLabel: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.textSecondary,
+      marginBottom: 6,
+      letterSpacing: 0.5,
+    },
+    input: {
+      backgroundColor: colors.inputBg,
+      borderWidth: 1,
+      borderColor: colors.greenBorder,
+      borderRadius: 14,
+      paddingHorizontal: 16,
+      paddingVertical: 13,
+      fontSize: 15,
+      color: colors.inputText,
+    },
+    inputError: { borderColor: colors.red },
+    fieldError: { fontSize: 11, color: colors.red, marginTop: 4, marginLeft: 4 },
 
-  btn: {
-    backgroundColor: COLORS.greenDim,
-    borderWidth: 1,
-    borderColor: COLORS.green,
-    borderRadius: 16,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 16,
-  },
-  btnGreen: { backgroundColor: COLORS.greenDimStrong },
-  btnDisabled: { opacity: 0.5 },
-  btnText: { color: COLORS.green, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
+    btn: {
+      backgroundColor: colors.greenDim,
+      borderWidth: 1,
+      borderColor: colors.green,
+      borderRadius: 16,
+      paddingVertical: 15,
+      alignItems: 'center',
+      marginTop: 8,
+      marginBottom: 16,
+    },
+    btnGreen: { backgroundColor: colors.greenDimStrong },
+    btnDisabled: { opacity: 0.5 },
+    btnText: { color: colors.green, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
 
-  switchText: { textAlign: 'center', fontSize: 13, color: COLORS.textSecondary },
-  switchLink: { color: COLORS.green, fontWeight: '700' },
+    switchText: { textAlign: 'center', fontSize: 13, color: colors.textSecondary },
+    switchLink: { color: colors.green, fontWeight: '700' },
 
-  footer: { textAlign: 'center', color: COLORS.textTertiary, fontSize: 11, marginTop: 28, letterSpacing: 1 },
-});
+    footer: { textAlign: 'center', color: colors.textTertiary, fontSize: 11, marginTop: 28, letterSpacing: 1 },
+  });
+}

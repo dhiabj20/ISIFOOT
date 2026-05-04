@@ -1,14 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, Alert, StatusBar, RefreshControl,
 } from 'react-native';
 import { supabase } from '../services/supabase';
 import { getFixtures, joinFixture, leaveFixture } from '../services/fixtureService';
-import { COLORS } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { GlassBackground, ScreenHeader, EmptyState } from '../components';
 
 export default function FixturesScreen({ navigation }) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [fixtures, setFixtures] = useState([]);
   const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -110,7 +112,7 @@ export default function FixturesScreen({ navigation }) {
             disabled={isFull || joining === fixture.id + team}
           >
             {joining === fixture.id + team
-              ? <ActivityIndicator color={COLORS.green} size="small" />
+              ? <ActivityIndicator color={colors.green} size="small" />
               : <Text style={styles.joinBtnText}>{isFull ? 'Complet' : 'Rejoindre'}</Text>
             }
           </TouchableOpacity>
@@ -127,7 +129,7 @@ export default function FixturesScreen({ navigation }) {
   const renderFixture = ({ item: f }) => {
     const joined = isJoined(f);
     const myTeam = getMyTeam(f);
-    const statusColor = f.status === 'open' ? COLORS.green : f.status === 'full' ? COLORS.orange : COLORS.textSecondary;
+    const statusColor = f.status === 'open' ? colors.green : f.status === 'full' ? colors.orange : colors.textSecondary;
 
     return (
       <View style={styles.fixtureCard}>
@@ -136,7 +138,7 @@ export default function FixturesScreen({ navigation }) {
             {new Date(f.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
             {'  '}{f.start_time?.slice(0, 5)} – {f.end_time?.slice(0, 5)}
           </Text>
-          <View style={[styles.statusPill, { backgroundColor: statusColor === COLORS.green ? COLORS.greenDim : statusColor === COLORS.orange ? COLORS.yellowDim : COLORS.bgCardAlt, borderColor: statusColor + '44' }]}>
+          <View style={[styles.statusPill, { backgroundColor: statusColor === colors.green ? colors.greenDim : statusColor === colors.orange ? colors.yellowDim : colors.bgCardAlt, borderColor: statusColor + '44' }]}>
             <Text style={[styles.statusPillText, { color: statusColor }]}>
               {f.status === 'open' ? 'Ouvert' : f.status === 'full' ? 'Complet' : 'Terminé'}
             </Text>
@@ -172,12 +174,12 @@ export default function FixturesScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor="transparent" translucent />
       <GlassBackground />
-      <ScreenHeader title="Matchs" navigation={navigation} />
+      <ScreenHeader title="Matchs" showBack={false} navigation={navigation} />
 
       {loading ? (
-        <ActivityIndicator color={COLORS.green} size="large" style={styles.loadingIndicator} />
+        <ActivityIndicator color={colors.green} size="large" style={styles.loadingIndicator} />
       ) : (
         <FlatList
           data={fixtures}
@@ -185,7 +187,7 @@ export default function FixturesScreen({ navigation }) {
           renderItem={renderFixture}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.green} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.green} />}
           ListEmptyComponent={<EmptyState title="Aucun match à venir" subtitle="Réservez le terrain pour créer un match !" />}
         />
       )}
@@ -193,24 +195,25 @@ export default function FixturesScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
+function createStyles(colors) {
+  return StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bg },
   loadingIndicator: { marginTop: 60 },
 
-  list: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 40 },
+  list: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 120 },
 
   fixtureCard: {
-    backgroundColor: COLORS.bgCard,
+    backgroundColor: colors.bgCard,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
     padding: 16,
     marginBottom: 14,
   },
   fixtureHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14,
   },
-  fixtureDate: { color: COLORS.fieldLabel, fontSize: 12, fontWeight: '600' },
+  fixtureDate: { color: colors.fieldLabel, fontSize: 12, fontWeight: '600', flex: 1, marginRight: 10 },
   statusPill: {
     borderRadius: 8, borderWidth: 1, paddingHorizontal: 8, paddingVertical: 4,
   },
@@ -218,26 +221,26 @@ const styles = StyleSheet.create({
 
   teamsRow: { flexDirection: 'row', alignItems: 'flex-start' },
   teamCol: { flex: 1, alignItems: 'center' },
-  teamName: { color: COLORS.white, fontWeight: '800', fontSize: 14, marginBottom: 4, textAlign: 'center' },
-  teamCount: { color: COLORS.textSecondary, fontSize: 11, marginBottom: 8 },
+  teamName: { color: colors.white, fontWeight: '800', fontSize: 14, marginBottom: 4, textAlign: 'center', lineHeight: 18 },
+  teamCount: { color: colors.textSecondary, fontSize: 11, marginBottom: 8, letterSpacing: 0.2 },
   playerSlot: {
-    backgroundColor: COLORS.inputBg,
+    backgroundColor: colors.inputBg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
     paddingHorizontal: 8,
     paddingVertical: 5,
     marginBottom: 4,
     width: '100%',
     alignItems: 'center',
   },
-  playerName: { color: COLORS.white, fontSize: 11, fontWeight: '600' },
-  playerEmpty: { color: COLORS.textTertiary, fontSize: 11, fontStyle: 'italic' },
+  playerName: { color: colors.white, fontSize: 11, fontWeight: '600' },
+  playerEmpty: { color: colors.textTertiary, fontSize: 11, fontStyle: 'italic' },
   joinBtn: {
     marginTop: 8,
-    backgroundColor: COLORS.greenDim,
+    backgroundColor: colors.greenDim,
     borderWidth: 1,
-    borderColor: COLORS.green,
+    borderColor: colors.green,
     borderRadius: 10,
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -245,43 +248,44 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   joinBtnDisabled: {
-    backgroundColor: COLORS.bgCardAlt,
-    borderColor: COLORS.textTertiary,
+    backgroundColor: colors.bgCardAlt,
+    borderColor: colors.textTertiary,
   },
-  joinBtnText: { color: COLORS.green, fontWeight: '800', fontSize: 12 },
+  joinBtnText: { color: colors.green, fontWeight: '800', fontSize: 12 },
   joinedBadge: {
     marginTop: 8,
-    backgroundColor: COLORS.greenDim,
+    backgroundColor: colors.greenDim,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
     padding: 6,
     width: '100%',
     alignItems: 'center',
   },
-  joinedText: { color: COLORS.green, fontSize: 10, fontWeight: '700', textAlign: 'center' },
+  joinedText: { color: colors.green, fontSize: 10, fontWeight: '700', textAlign: 'center' },
 
   vsCenter: { paddingHorizontal: 8, paddingTop: 24 },
-  vsText: { color: COLORS.orange, fontWeight: '900', fontSize: 16 },
+  vsText: { color: colors.orange, fontWeight: '900', fontSize: 16 },
 
   leaveBtn: {
     marginTop: 12,
     borderWidth: 1,
-    borderColor: COLORS.redBorder,
+    borderColor: colors.redBorder,
     borderRadius: 12,
     paddingVertical: 10,
     alignItems: 'center',
-    backgroundColor: COLORS.redDim,
+    backgroundColor: colors.redDim,
   },
-  leaveBtnText: { color: COLORS.red, fontWeight: '700', fontSize: 13 },
+  leaveBtnText: { color: colors.red, fontWeight: '700', fontSize: 13 },
   chatBtn: {
     marginTop: 12,
     borderWidth: 1,
-    borderColor: COLORS.greenBorder,
+    borderColor: colors.greenBorder,
     borderRadius: 12,
     paddingVertical: 10,
     alignItems: 'center',
-    backgroundColor: COLORS.bgCardAlt,
+    backgroundColor: colors.bgCardAlt,
   },
-  chatBtnText: { color: COLORS.fieldLabel, fontWeight: '700', fontSize: 13 },
-});
+  chatBtnText: { color: colors.fieldLabel, fontWeight: '700', fontSize: 13, lineHeight: 18 },
+  });
+}

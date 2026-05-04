@@ -12,7 +12,7 @@ import {
 import { supabase } from '../services/supabase';
 import { getUserReservations } from '../services/reservationService';
 import { getUserChatFixtures } from '../services/fixtureService';
-import { COLORS } from '../theme';
+import { useTheme } from '../context/ThemeContext';
 import { GlassBackground, GlassPanel, StatCard } from '../components';
 
 function sameDay(a, b) {
@@ -28,6 +28,8 @@ function buildDateTime(date, time) {
 }
 
 export default function HomeScreen({ navigation }) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profile, setProfile] = useState(null);
@@ -113,19 +115,19 @@ export default function HomeScreen({ navigation }) {
 
   return (
     <View style={styles.root}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.bg} />
+      <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} backgroundColor={colors.bg} />
       <GlassBackground />
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color={COLORS.green} />
+          <ActivityIndicator size="large" color={colors.green} />
         </View>
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scroll}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.green} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.green} />
           }
         >
           <View style={styles.header}>
@@ -187,45 +189,47 @@ export default function HomeScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.bg },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 30 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  hello: { color: COLORS.white, fontSize: 24, fontWeight: '900' },
-  sub: { color: COLORS.textSecondary, fontSize: 13, marginTop: 4 },
-  avatarBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.bgCard,
-    borderWidth: 1.5,
-    borderColor: COLORS.greenBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: COLORS.green, fontWeight: '900', fontSize: 20 },
-  sectionTitle: {
-    color: COLORS.headerSub,
-    letterSpacing: 3,
-    fontWeight: '800',
-    fontSize: 13,
-    marginTop: 24,
-    marginBottom: 12,
-  },
-  statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
-  empty: { paddingVertical: 24, alignItems: 'center' },
-  emptyText: { color: COLORS.textSecondary },
-  resCardWrap: { marginBottom: 10 },
-  resCard: { flexDirection: 'row', alignItems: 'center', padding: 14 },
-  resLeft: { width: 76 },
-  resDate: { color: COLORS.whiteMuted, fontWeight: '700', fontSize: 13 },
-  resTime: { color: COLORS.green, fontWeight: '900', fontSize: 21, marginTop: 3 },
-  resMiddle: { flex: 1, paddingHorizontal: 8 },
-  resName: { color: COLORS.white, fontWeight: '800', fontSize: 17 },
-  resSub: { color: COLORS.textSecondary, marginTop: 4, fontSize: 12 },
-  resBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
-  badgeOk: { backgroundColor: COLORS.greenDim },
-  badgePending: { backgroundColor: COLORS.yellowDim },
-  resBadgeText: { color: COLORS.green, fontWeight: '800', fontSize: 11 },
-});
+function createStyles(colors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+    scroll: { paddingHorizontal: 18, paddingTop: 20, paddingBottom: 120 },
+    header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+    hello: { color: colors.white, fontSize: 24, fontWeight: '900' },
+    sub: { color: colors.textSecondary, fontSize: 13, marginTop: 4, letterSpacing: 0.2 },
+    avatarBtn: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.bgCard,
+      borderWidth: 1.5,
+      borderColor: colors.greenBorder,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    avatarText: { color: colors.green, fontWeight: '900', fontSize: 20 },
+    sectionTitle: {
+      color: colors.headerSub,
+      letterSpacing: 2.2,
+      fontWeight: '800',
+      fontSize: 13,
+      marginTop: 24,
+      marginBottom: 12,
+    },
+    statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 18 },
+    empty: { paddingVertical: 24, alignItems: 'center' },
+    emptyText: { color: colors.textSecondary },
+    resCardWrap: { marginBottom: 10 },
+    resCard: { flexDirection: 'row', alignItems: 'center', padding: 14 },
+    resLeft: { width: 76 },
+    resDate: { color: colors.whiteMuted, fontWeight: '700', fontSize: 13 },
+    resTime: { color: colors.green, fontWeight: '900', fontSize: 21, marginTop: 3 },
+    resMiddle: { flex: 1, paddingHorizontal: 8 },
+    resName: { color: colors.white, fontWeight: '800', fontSize: 17 },
+    resSub: { color: colors.textSecondary, marginTop: 4, fontSize: 12 },
+    resBadge: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 },
+    badgeOk: { backgroundColor: colors.greenDim },
+    badgePending: { backgroundColor: colors.yellowDim },
+    resBadgeText: { color: colors.green, fontWeight: '800', fontSize: 11 },
+  });
+}

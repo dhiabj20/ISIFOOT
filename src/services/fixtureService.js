@@ -1,7 +1,14 @@
 import { supabase } from './supabase';
 
+function toLocalDateKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 export async function getFixtures() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateKey(new Date());
 
   const { data, error } = await supabase
     .from('fixtures')
@@ -82,8 +89,8 @@ export async function createFixture({
       visibility: 'public',
       team_a_name: teamAName || 'Equipe A',
       team_b_name: teamBName || 'Equipe B',
-      team_a_max: teamAMax || 5,
-      team_b_max: teamBMax || 5,
+      team_a_max: teamAMax || 6,
+      team_b_max: teamBMax || 6,
       created_by: createdBy,
       status: 'open',
     })
@@ -94,7 +101,7 @@ export async function createFixture({
 }
 
 export async function getUserChatFixtures(userId) {
-  const today = new Date().toISOString().split('T')[0];
+  const today = toLocalDateKey(new Date());
 
   const { data: created, error: createdError } = await supabase
     .from('fixtures')
