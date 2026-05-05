@@ -100,7 +100,7 @@ export default function PlanningScreen({ navigation }) {
         <TouchableOpacity onPress={() => shiftWeek(-1)} style={styles.navArrow}>
           <Text style={styles.navArrowText}>{'<'}</Text>
         </TouchableOpacity>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.weekScroll}>
+        <View style={styles.weekRow}>
           {weekDays.map((d, i) => (
             <TouchableOpacity
               key={i}
@@ -119,7 +119,7 @@ export default function PlanningScreen({ navigation }) {
               </Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
+        </View>
         <TouchableOpacity onPress={() => shiftWeek(1)} style={styles.navArrow}>
           <Text style={styles.navArrowText}>{'>'}</Text>
         </TouchableOpacity>
@@ -193,14 +193,15 @@ function createStyles(colors) {
   },
   navArrow: { padding: 8 },
     navArrowText: { color: colors.green, fontSize: 24, fontWeight: '300' },
-  weekScroll: { flex: 1 },
+  weekRow: { flex: 1, flexDirection: 'row', justifyContent: 'space-between' },
   dayBtn: {
+    flex: 1,
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginHorizontal: 4,
+    paddingVertical: 9,
+    paddingHorizontal: 6,
+    marginHorizontal: 2,
     borderRadius: 14,
-    minWidth: 56,
+    minWidth: 0,
   },
   dayBtnSelected: {
     backgroundColor: colors.greenDimStrong,
@@ -212,7 +213,7 @@ function createStyles(colors) {
     borderWidth: 1,
     borderColor: colors.greenBorder,
   },
-    dayName: { color: colors.textSecondary, fontSize: 11, fontWeight: '600' },
+    dayName: { color: colors.textSecondary, fontSize: 10, fontWeight: '600' },
     dayNum: { color: colors.white, fontSize: 17, fontWeight: '800', marginTop: 2 },
     dayTextSelected: { color: colors.green },
 
